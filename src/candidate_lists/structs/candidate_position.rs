@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 use strum::{Display, EnumString};
 
 use crate::form::{TokenValue, WithCsrfToken};
@@ -43,7 +42,7 @@ impl WithCsrfToken for CandidatePositionForm {
 impl CandidatePositionForm {
     fn build(
         validated: CandidatePositionFormValidated,
-        current: Option<&CandidatePosition>,
+        current: Option<CandidatePosition>,
     ) -> CandidatePosition {
         if let Some(_current) = current {
             CandidatePosition {

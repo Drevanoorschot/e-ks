@@ -1,5 +1,8 @@
 /// Application specific modules
 mod candidate_lists;
+mod persons;
+mod political_groups;
+
 /// Generic modules
 mod common;
 mod error;
@@ -7,8 +10,6 @@ pub mod filters;
 mod form;
 mod pages;
 mod pagination;
-mod persons;
-mod political_groups;
 pub mod router;
 mod submit;
 
@@ -23,7 +24,7 @@ pub use common::{
     locale,
     locale::Locale,
     logging, new_type, server,
-    state::{AppState, DbConnection},
+    state::AppState,
     templates::HtmlTemplate,
     translate,
 };

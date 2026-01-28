@@ -29,9 +29,9 @@
     grid-column: 1 / -1;
   }
 
-  .error {
+  span.error {
     padding: 0;
-    margin: -0.75rem 0 0 0;
+    margin: -0.25rem 0 0 0;
     font-size: var(--font-size-md);
     color: var(--color-error-darker);
     font-weight: normal;
@@ -46,6 +46,29 @@
 /* Checkbox and radio input styling */
 .checkbox {
   display: inline-flex;
+
+  &.radio-card {
+    width: 32rem;
+    border: 1px solid var(--gray-300);
+    border-radius: 3px;
+    padding: var(--space-md);
+    display: flex;
+    align-items: start;
+    cursor: pointer;
+    gap: var(--space-md);
+
+    input {
+      margin-top: var(--space-xs);
+    }
+
+    label {
+      flex: 1;
+    }
+
+    .button {
+      margin-left: auto;
+    }
+  }
 
   /* General checkbox and radio styling */
   input {
@@ -166,5 +189,12 @@
     padding-left: 0.5rem;
     cursor: pointer;
     user-select: none;
+
+    .hint {
+      margin-top: var(--space-xs);
+      display: block;
+      font-size: var(--font-size-md);
+      max-width: 32rem;
+    }
   }
 }

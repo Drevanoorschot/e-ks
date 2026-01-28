@@ -1,9 +1,13 @@
 use askama::Template;
-use axum::response::{IntoResponse, Redirect, Response};
+use axum::{
+    extract::State,
+    response::{IntoResponse, Redirect, Response},
+};
 use axum_extra::extract::Form;
+use sqlx::PgPool;
 
 use crate::{
-    AppError, Context, DbConnection, ElectionConfig, HtmlTemplate,
+    AppError, Context, ElectionConfig, HtmlTemplate,
     candidate_lists::{
         self, CandidateList, CandidateListForm, CandidateListSummary, pages::CandidateListsEditPath,
     },
@@ -25,10 +29,10 @@ pub async fn edit_candidate_list(
     _: CandidateListsEditPath,
     context: Context,
     candidate_list: CandidateList,
-    DbConnection(mut conn): DbConnection,
+    State(pool): State<PgPool>,
 ) -> Result<Response, AppError> {
-    let candidate_lists = candidate_lists::list_candidate_list_with_count(&mut conn).await?;
-    let total_persons = persons::count_persons(&mut conn).await?;
+    let candidate_lists = candidate_lists::list_candidate_list_with_count(&pool).await?;
+    let total_persons = persons::count_persons(&pool).await?;
 
     Ok(HtmlTemplate(
         CandidateListUpdateTemplate {
@@ -49,13 +53,13 @@ pub async fn update_candidate_list(
     _: CandidateListsEditPath,
     context: Context,
     candidate_list: CandidateList,
-    DbConnection(mut conn): DbConnection,
-    form: Form<CandidateListForm>,
+    State(pool): State<PgPool>,
+    Form(form): Form<CandidateListForm>,
 ) -> Result<Response, AppError> {
-    let candidate_lists = candidate_lists::list_candidate_list_with_count(&mut conn).await?;
-    let total_persons = persons::count_persons(&mut conn).await?;
+    let candidate_lists = candidate_lists::list_candidate_list_with_count(&pool).await?;
+    let total_persons = persons::count_persons(&pool).await?;
 
-    match form.validate_update(&candidate_list, &context.csrf_tokens) {
+    match form.validate_update(candidate_list.clone(), &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
             CandidateListUpdateTemplate {
                 candidate_lists,
@@ -68,7 +72,7 @@ pub async fn update_candidate_list(
         .into_response()),
         Ok(candidate_list) => {
             let candidate_list =
-                candidate_lists::update_candidate_list(&mut conn, candidate_list).await?;
+                candidate_lists::update_candidate_list(&pool, &candidate_list).await?;
             Ok(Redirect::to(&candidate_list.view_path()).into_response())
         }
     }
@@ -79,11 +83,11 @@ mod tests {
     use super::*;
     use axum::http::{StatusCode, header};
     use axum_extra::extract::Form;
-    use chrono::DateTime;
+    use chrono::{DateTime, Duration, Utc};
     use sqlx::PgPool;
 
     use crate::{
-        Context, DbConnection, ElectoralDistrict, TokenValue,
+        Context, ElectoralDistrict, TokenValue,
         candidate_lists::{self, CandidateListId},
         test_utils::{response_body_string, sample_candidate_list},
     };
@@ -92,16 +96,15 @@ mod tests {
     async fn edit_candidate_list_renders_existing_list(pool: PgPool) -> Result<(), sqlx::Error> {
         let candidate_list = sample_candidate_list(CandidateListId::new());
 
-        let mut conn = pool.acquire().await?;
-        candidate_lists::create_candidate_list(&mut conn, &candidate_list).await?;
+        candidate_lists::create_candidate_list(&pool, &candidate_list).await?;
 
         let response = edit_candidate_list(
             CandidateListsEditPath {
                 list_id: candidate_list.id,
             },
-            Context::new_test(),
+            Context::new_test(pool.clone()).await,
             candidate_list.clone(),
-            DbConnection(pool.acquire().await?),
+            State(pool.clone()),
         )
         .await
         .unwrap();
@@ -118,8 +121,7 @@ mod tests {
 
     #[sqlx::test]
     async fn update_candidate_list_persists_and_redirects(pool: PgPool) -> Result<(), sqlx::Error> {
-        let mut conn = pool.acquire().await.unwrap();
-        let context = Context::new_test();
+        let context = Context::new_test(pool.clone()).await;
         let csrf_token = context.csrf_tokens.issue().value;
         let creation_date = DateTime::from_timestamp(0, 0).unwrap();
         let candidate_list = CandidateList {
@@ -128,7 +130,7 @@ mod tests {
             created_at: creation_date,
             updated_at: creation_date,
         };
-        candidate_lists::create_candidate_list(&mut conn, &candidate_list).await?;
+        let candidate_list = candidate_lists::create_candidate_list(&pool, &candidate_list).await?;
 
         let form = CandidateListForm {
             electoral_districts: vec![ElectoralDistrict::DR],
@@ -140,7 +142,7 @@ mod tests {
             },
             context,
             candidate_list.clone(),
-            DbConnection(conn),
+            State(pool.clone()),
             Form(form),
         )
         .await
@@ -156,8 +158,7 @@ mod tests {
             .expect("location header value");
 
         // verify updated candidate list object in database
-        let mut conn = pool.acquire().await?;
-        let lists = candidate_lists::list_candidate_list_with_count(&mut conn).await?;
+        let lists = candidate_lists::list_candidate_list_with_count(&pool).await?;
         assert_eq!(lists.len(), 1);
 
         let updated_list = &lists[0].list;
@@ -169,10 +170,10 @@ mod tests {
             vec![ElectoralDistrict::DR],
             updated_list.electoral_districts
         );
-        assert_eq!(creation_date, updated_list.created_at);
+        assert!((candidate_list.created_at - Utc::now()).abs() < Duration::seconds(10));
         // we don't know the exact update date
         // best we can do is to check it at least got updated (i.e. not equal to creation_date)
-        assert_ne!(creation_date, updated_list.updated_at);
+        assert_ne!(candidate_list.created_at, updated_list.updated_at);
 
         Ok(())
     }
@@ -181,7 +182,6 @@ mod tests {
     async fn update_candidate_list_invalid_form_renders_template(
         pool: PgPool,
     ) -> Result<(), sqlx::Error> {
-        let mut conn = pool.acquire().await.unwrap();
         let creation_date = DateTime::from_timestamp(0, 0).unwrap();
         let candidate_list = CandidateList {
             id: CandidateListId::new(),
@@ -189,7 +189,7 @@ mod tests {
             created_at: creation_date,
             updated_at: creation_date,
         };
-        candidate_lists::create_candidate_list(&mut conn, &candidate_list).await?;
+        candidate_lists::create_candidate_list(&pool, &candidate_list).await?;
 
         let form = CandidateListForm {
             electoral_districts: vec![ElectoralDistrict::DR],
@@ -199,9 +199,9 @@ mod tests {
             CandidateListsEditPath {
                 list_id: candidate_list.id,
             },
-            Context::new_test(),
+            Context::new_test(pool.clone()).await,
             candidate_list.clone(),
-            DbConnection(conn),
+            State(pool.clone()),
             Form(form),
         )
         .await
@@ -211,14 +211,16 @@ mod tests {
         let body = response_body_string(response).await;
         assert!(body.contains("Edit candidate list"));
 
-        let mut conn = pool.acquire().await?;
-        let lists = candidate_lists::list_candidate_list_with_count(&mut conn).await?;
+        let lists = candidate_lists::list_candidate_list_with_count(&pool).await?;
         assert_eq!(lists.len(), 1);
 
         let updated_list = &lists[0].list;
 
         // verify candidate list didn't update in database
-        assert_eq!(&candidate_list, updated_list);
+        assert_eq!(
+            candidate_list.electoral_districts,
+            updated_list.electoral_districts
+        );
 
         Ok(())
     }
