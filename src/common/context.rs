@@ -42,6 +42,11 @@ impl Context {
         Self::new(political_group, Locale::En, CsrfTokens::default())
     }
 
+    #[cfg(test)]
+    pub fn new_test_without_db() -> Self {
+        Self::new(PoliticalGroup::default(), Locale::En, CsrfTokens::default())
+    }
+
     pub fn livereload_enabled() -> bool {
         cfg!(feature = "livereload")
     }

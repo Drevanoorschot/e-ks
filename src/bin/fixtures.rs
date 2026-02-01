@@ -9,7 +9,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     sqlx::migrate!().run(&state.pool).await?;
 
-    fixtures::load(&state.pool).await?;
+    fixtures::load(&state.pool, &state.store).await?;
 
     Ok(())
 }

@@ -1,15 +1,15 @@
 use sqlx::PgPool;
 
-use crate::AppError;
+use crate::{AppError, AppStore};
 
 mod candidate_list;
 mod persons;
 mod political_groups;
 
-pub async fn load(pool: &PgPool) -> Result<(), AppError> {
+pub async fn load(pool: &PgPool, store: &AppStore) -> Result<(), AppError> {
     clear_database(pool).await?;
     persons::load(pool).await?;
-    candidate_list::load(pool).await?;
+    candidate_list::load(pool, store).await?;
     political_groups::load(pool).await?;
 
     Ok(())
@@ -31,12 +31,13 @@ async fn clear_database(db: &PgPool) -> Result<(), AppError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::fixtures::load;
+    use crate::{AppStore, fixtures::load};
     use sqlx::PgPool;
 
     #[sqlx::test]
     async fn test_load_all_fixtures(pool: PgPool) {
-        load(&pool).await.unwrap();
+        let store = AppStore::default();
+        load(&pool, &store).await.unwrap();
         let persons = crate::persons::list_persons(
             &pool,
             50,

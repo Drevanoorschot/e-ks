@@ -5,13 +5,12 @@ use axum::{
 };
 use axum_extra::extract::Form;
 use serde::Deserialize;
-use sqlx::PgPool;
 
 use crate::{
-    AppError, Context, HtmlTemplate,
+    AppError, AppStore, Context, HtmlTemplate,
     candidate_lists::{self, CandidateList, FullCandidateList, pages::AddCandidatePath},
     filters,
-    persons::{self, Person, PersonId},
+    persons::{Person, PersonId},
 };
 
 #[derive(Template)]
@@ -25,9 +24,9 @@ pub async fn add_existing_person(
     _: AddCandidatePath,
     context: Context,
     full_list: FullCandidateList,
-    State(pool): State<PgPool>,
+    State(store): State<AppStore>,
 ) -> Result<impl IntoResponse, AppError> {
-    let persons = persons::list_persons_not_on_candidate_list(&pool, full_list.id()).await?;
+    let persons = candidate_lists::list_persons_not_on_candidate_list(&store, full_list.id())?;
 
     Ok(HtmlTemplate(
         AddExistingPersonTemplate { full_list, persons },
@@ -43,17 +42,20 @@ pub struct AddPersonForm {
 pub async fn add_person_to_candidate_list(
     _: AddCandidatePath,
     full_list: FullCandidateList,
-    State(pool): State<PgPool>,
+    State(store): State<AppStore>,
     Form(form): Form<AddPersonForm>,
 ) -> Result<Response, AppError> {
     let redirect = Redirect::to(&full_list.list.view_path()).into_response();
-    let person = persons::get_person(&pool, form.person_id).await?;
+    let person_exists = store
+        .get_persons()
+        .iter()
+        .any(|person| person.id == form.person_id);
 
-    if full_list.contains(form.person_id) || person.is_none() {
+    if full_list.contains(form.person_id) || !person_exists {
         return Ok(redirect);
     }
 
-    candidate_lists::append_candidate_to_list(&pool, full_list.id(), form.person_id).await?;
+    candidate_lists::append_candidate_to_list(&store, full_list.id(), form.person_id).await?;
 
     Ok(redirect)
 }
@@ -66,39 +68,39 @@ mod tests {
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
-    use sqlx::PgPool;
 
     use crate::{
-        Context,
+        AppStore, Context,
         candidate_lists::{self, CandidateListId},
-        persons::{self, PersonId},
+        common::store::AppEvent,
+        persons::PersonId,
         test_utils::{
-            response_body_string, sample_candidate_list, sample_person,
+            self, response_body_string, sample_candidate_list, sample_person,
             sample_person_with_last_name,
         },
     };
 
-    #[sqlx::test]
-    async fn view_candidate_list_renders_persons(pool: PgPool) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn view_candidate_list_renders_persons() -> Result<(), AppError> {
+        let store = AppStore::default();
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person(PersonId::new());
 
-        candidate_lists::create_candidate_list(&pool, &list).await?;
-        persons::create_person(&pool, &person).await?;
+        candidate_lists::create_candidate_list(&store, &list).await?;
+        store.update(AppEvent::CreatePerson(person.clone())).await?;
 
-        let full_list = candidate_lists::get_full_candidate_list(&pool, list_id)
+        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
             .await?
             .expect("candidate list");
 
         let response = add_existing_person(
             AddCandidatePath { list_id },
-            Context::new_test(pool.clone()).await,
+            Context::new_test_without_db(),
             full_list,
-            State(pool.clone()),
+            State(store),
         )
-        .await
-        .unwrap()
+        .await?
         .into_response();
 
         assert_eq!(response.status(), StatusCode::OK);
@@ -109,31 +111,29 @@ mod tests {
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn add_person_to_candidate_list_adds_and_redirects(
-        pool: PgPool,
-    ) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn add_person_to_candidate_list_adds_and_redirects() -> Result<(), AppError> {
+        let store = AppStore::default();
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person_with_last_name(PersonId::new(), "Bakker");
 
-        candidate_lists::create_candidate_list(&pool, &list).await?;
-        persons::create_person(&pool, &person).await?;
+        candidate_lists::create_candidate_list(&store, &list).await?;
+        store.update(AppEvent::CreatePerson(person.clone())).await?;
 
-        let full_list = candidate_lists::get_full_candidate_list(&pool, list_id)
+        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
             .await?
             .expect("candidate list");
 
         let response = add_person_to_candidate_list(
             AddCandidatePath { list_id },
             full_list,
-            State(pool.clone()),
+            State(store.clone()),
             Form(AddPersonForm {
                 person_id: person.id,
             }),
         )
-        .await
-        .unwrap();
+        .await?;
 
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         let location = response
@@ -144,7 +144,7 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, list.view_path());
 
-        let full_list = candidate_lists::get_full_candidate_list(&pool, list_id)
+        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(full_list.candidates.len(), 1);
@@ -153,34 +153,38 @@ mod tests {
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn add_person_to_candidate_list_redirects_when_person_not_on_list(
-        pool: PgPool,
-    ) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn add_person_to_candidate_list_redirects_when_person_not_on_list() -> Result<(), AppError>
+    {
+        let store = AppStore::default();
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let existing_person = sample_person_with_last_name(PersonId::new(), "Jansen");
         let new_person = sample_person_with_last_name(PersonId::new(), "Bakker");
 
-        candidate_lists::create_candidate_list(&pool, &list).await?;
-        persons::create_person(&pool, &existing_person).await?;
-        persons::create_person(&pool, &new_person).await?;
-        candidate_lists::update_candidate_list_order(&pool, list_id, &[existing_person.id]).await?;
+        candidate_lists::create_candidate_list(&store, &list).await?;
+        store
+            .update(AppEvent::CreatePerson(existing_person.clone()))
+            .await?;
+        store
+            .update(AppEvent::CreatePerson(new_person.clone()))
+            .await?;
+        candidate_lists::update_candidate_list_order(&store, list_id, &[existing_person.id])
+            .await?;
 
-        let full_list = candidate_lists::get_full_candidate_list(&pool, list_id)
+        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
             .await?
             .expect("candidate list");
 
         let response = add_person_to_candidate_list(
             AddCandidatePath { list_id },
             full_list,
-            State(pool.clone()),
+            State(store.clone()),
             Form(AddPersonForm {
                 person_id: new_person.id,
             }),
         )
-        .await
-        .unwrap();
+        .await?;
 
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         let location = response
@@ -191,7 +195,7 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, list.view_path());
 
-        let full_list = candidate_lists::get_full_candidate_list(&pool, list_id)
+        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(full_list.candidates.len(), 2);

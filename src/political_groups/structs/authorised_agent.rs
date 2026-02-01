@@ -1,9 +1,10 @@
 use crate::id_newtype;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 id_newtype!(pub struct AuthorisedAgentId);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthorisedAgent {
     pub id: AuthorisedAgentId,
 

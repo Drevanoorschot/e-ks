@@ -4,14 +4,15 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::Form;
-use sqlx::PgPool;
+use chrono::Utc;
 
 use crate::{
-    AppError, Context, HtmlTemplate,
+    AppError, AppStore, Context, HtmlTemplate,
     candidate_lists::{self, CandidateList, FullCandidateList, pages::CreateCandidatePath},
+    common::store::AppEvent,
     filters,
     form::{FormData, Validate},
-    persons::{self, COUNTRY_CODES, PersonForm},
+    persons::{COUNTRY_CODES, PersonForm},
 };
 
 #[derive(Template)]
@@ -42,7 +43,7 @@ pub async fn create_person_candidate_list(
     _: CreateCandidatePath,
     context: Context,
     full_list: FullCandidateList,
-    State(pool): State<PgPool>,
+    State(store): State<AppStore>,
     Form(form): Form<PersonForm>,
 ) -> Result<Response, AppError> {
     match form.validate_create(&context.csrf_tokens) {
@@ -55,13 +56,16 @@ pub async fn create_person_candidate_list(
             context,
         )
         .into_response()),
-        Ok(person) => {
-            let person = persons::create_person(&pool, &person).await?;
+        Ok(mut person) => {
+            let now = Utc::now();
+            person.created_at = now;
+            person.updated_at = now;
+            store.update(AppEvent::CreatePerson(person.clone())).await?;
 
-            candidate_lists::append_candidate_to_list(&pool, full_list.id(), person.id).await?;
+            candidate_lists::append_candidate_to_list(&store, full_list.id(), person.id).await?;
 
             let candidate =
-                candidate_lists::get_candidate(&pool, full_list.id(), person.id).await?;
+                candidate_lists::get_candidate(&store, full_list.id(), person.id).await?;
 
             Ok(Redirect::to(&candidate.after_create_path()).into_response())
         }
@@ -76,31 +80,30 @@ mod tests {
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
-    use sqlx::PgPool;
 
     use crate::{
-        Context,
+        AppStore, Context,
         candidate_lists::{self, CandidateListId},
         test_utils::{response_body_string, sample_candidate_list, sample_person_form},
     };
 
-    #[sqlx::test]
-    async fn new_person_candidate_list_renders_form(pool: PgPool) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn new_person_candidate_list_renders_form() -> Result<(), AppError> {
+        let store = AppStore::default();
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
-        candidate_lists::create_candidate_list(&pool, &list).await?;
+        candidate_lists::create_candidate_list(&store, &list).await?;
 
-        let full_list = candidate_lists::get_full_candidate_list(&pool, list_id)
+        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
             .await?
             .expect("candidate list");
 
         let response = new_person_candidate_list(
             CreateCandidatePath { list_id },
-            Context::new_test(pool.clone()).await,
+            Context::new_test_without_db(),
             full_list,
         )
-        .await
-        .unwrap()
+        .await?
         .into_response();
 
         assert_eq!(response.status(), StatusCode::OK);
@@ -111,19 +114,18 @@ mod tests {
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn create_person_candidate_list_persists_and_redirects(
-        pool: PgPool,
-    ) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn create_person_candidate_list_persists_and_redirects() -> Result<(), AppError> {
+        let store = AppStore::default();
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
-        candidate_lists::create_candidate_list(&pool, &list).await?;
+        candidate_lists::create_candidate_list(&store, &list).await?;
 
-        let context = Context::new_test(pool.clone()).await;
+        let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let form = sample_person_form(&csrf_token);
 
-        let full_list = candidate_lists::get_full_candidate_list(&pool, list_id)
+        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
             .await?
             .expect("candidate list");
 
@@ -131,11 +133,10 @@ mod tests {
             CreateCandidatePath { list_id },
             context,
             full_list,
-            State(pool.clone()),
+            State(store.clone()),
             Form(form),
         )
-        .await
-        .unwrap();
+        .await?;
 
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         let location = response
@@ -145,7 +146,7 @@ mod tests {
             .to_str()
             .expect("location header value");
 
-        let full_list = candidate_lists::get_full_candidate_list(&pool, list_id)
+        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(full_list.candidates.len(), 1);
@@ -155,20 +156,19 @@ mod tests {
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn create_person_candidate_list_invalid_form_renders_template(
-        pool: PgPool,
-    ) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn create_person_candidate_list_invalid_form_renders_template() -> Result<(), AppError> {
+        let store = AppStore::default();
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
-        candidate_lists::create_candidate_list(&pool, &list).await?;
+        candidate_lists::create_candidate_list(&store, &list).await?;
 
-        let context = Context::new_test(pool.clone()).await;
+        let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let mut form = sample_person_form(&csrf_token);
         form.last_name = " ".to_string();
 
-        let full_list = candidate_lists::get_full_candidate_list(&pool, list_id)
+        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
             .await?
             .expect("candidate list");
 
@@ -176,11 +176,10 @@ mod tests {
             CreateCandidatePath { list_id },
             context,
             full_list,
-            State(pool.clone()),
+            State(store),
             Form(form),
         )
-        .await
-        .unwrap()
+        .await?
         .into_response();
 
         assert_eq!(response.status(), StatusCode::OK);

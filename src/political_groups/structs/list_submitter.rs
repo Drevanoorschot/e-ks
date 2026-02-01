@@ -1,9 +1,10 @@
 use crate::id_newtype;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 id_newtype!(pub struct ListSubmitterId);
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct ListSubmitter {
     pub id: ListSubmitterId,
 

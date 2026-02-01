@@ -25,6 +25,7 @@ pub use common::{
     locale::Locale,
     logging, new_type, server,
     state::AppState,
+    store::AppStore,
     templates::HtmlTemplate,
     translate,
 };

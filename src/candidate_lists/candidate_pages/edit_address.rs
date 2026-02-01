@@ -4,16 +4,17 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::Form;
-use sqlx::PgPool;
+use chrono::Utc;
 
 use crate::{
-    AppError, AppResponse, Context, HtmlTemplate,
+    AppError, AppResponse, AppStore, Context, HtmlTemplate,
     candidate_lists::{
         Candidate, CandidateList, FullCandidateList, candidate_pages::CandidateListEditAddressPath,
     },
+    common::store::AppEvent,
     filters,
     form::{FormData, Validate},
-    persons::{self, AddressForm, InitialEditQuery},
+    persons::{AddressForm, InitialEditQuery},
 };
 
 #[derive(Template)]
@@ -53,7 +54,7 @@ pub async fn update_person_address(
     context: Context,
     full_list: FullCandidateList,
     candidate: Candidate,
-    State(pool): State<PgPool>,
+    State(store): State<AppStore>,
     Query(query): Query<InitialEditQuery>,
     Form(form): Form<AddressForm>,
 ) -> Result<Response, AppError> {
@@ -68,8 +69,9 @@ pub async fn update_person_address(
             context,
         )
         .into_response()),
-        Ok(person) => {
-            persons::update_address(&pool, &person).await?;
+        Ok(mut person) => {
+            person.updated_at = Utc::now();
+            store.update(AppEvent::UpdatePerson(person)).await?;
 
             Ok(Redirect::to(&full_list.list.view_path()).into_response())
         }
@@ -85,45 +87,45 @@ mod tests {
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
-    use sqlx::PgPool;
 
     use crate::{
-        Context,
+        AppStore, Context,
         candidate_lists::{self, CandidateListId},
-        persons::{self, PersonId},
+        common::store::AppEvent,
+        persons::PersonId,
         test_utils::{
             response_body_string, sample_address_form, sample_candidate_list,
             sample_person_with_last_name,
         },
     };
 
-    #[sqlx::test]
-    async fn edit_person_address_renders_candidate(pool: PgPool) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn edit_person_address_renders_candidate() -> Result<(), AppError> {
+        let store = AppStore::default();
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person_with_last_name(PersonId::new(), "Jansen");
 
-        candidate_lists::create_candidate_list(&pool, &list).await?;
-        persons::create_person(&pool, &person).await?;
-        candidate_lists::update_candidate_list_order(&pool, list_id, &[person.id]).await?;
+        candidate_lists::create_candidate_list(&store, &list).await?;
+        store.update(AppEvent::CreatePerson(person.clone())).await?;
+        candidate_lists::update_candidate_list_order(&store, list_id, &[person.id]).await?;
 
-        let full_list = candidate_lists::get_full_candidate_list(&pool, list_id)
+        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
             .await?
             .expect("candidate list");
-        let candidate = candidate_lists::get_candidate(&pool, list_id, person.id).await?;
+        let candidate = candidate_lists::get_candidate(&store, list_id, person.id).await?;
 
         let response = edit_person_address(
             CandidateListEditAddressPath {
                 list_id,
                 person_id: person.id,
             },
-            Context::new_test(pool.clone()).await,
+            Context::new_test_without_db(),
             full_list,
             candidate,
             Query(InitialEditQuery::new()),
         )
-        .await
-        .unwrap()
+        .await?
         .into_response();
 
         assert_eq!(response.status(), StatusCode::OK);
@@ -133,22 +135,23 @@ mod tests {
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn update_person_address_persists_and_redirects(pool: PgPool) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn update_person_address_persists_and_redirects() -> Result<(), AppError> {
+        let store = AppStore::default();
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person_with_last_name(PersonId::new(), "Jansen");
 
-        candidate_lists::create_candidate_list(&pool, &list).await?;
-        persons::create_person(&pool, &person).await?;
-        candidate_lists::update_candidate_list_order(&pool, list_id, &[person.id]).await?;
+        candidate_lists::create_candidate_list(&store, &list).await?;
+        store.update(AppEvent::CreatePerson(person.clone())).await?;
+        candidate_lists::update_candidate_list_order(&store, list_id, &[person.id]).await?;
 
-        let full_list = candidate_lists::get_full_candidate_list(&pool, list_id)
+        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
             .await?
             .expect("candidate list");
-        let candidate = candidate_lists::get_candidate(&pool, list_id, person.id).await?;
+        let candidate = candidate_lists::get_candidate(&store, list_id, person.id).await?;
 
-        let context = Context::new_test(pool.clone()).await;
+        let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let mut form = sample_address_form(&csrf_token);
         form.locality = "Rotterdam".to_string();
@@ -161,12 +164,11 @@ mod tests {
             context,
             full_list,
             candidate,
-            State(pool.clone()),
+            State(store.clone()),
             Query(InitialEditQuery::new()),
             Form(form),
         )
-        .await
-        .unwrap();
+        .await?;
 
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         let location = response
@@ -177,32 +179,33 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, list.view_path());
 
-        let updated = persons::get_person(&pool, person.id)
-            .await?
+        let updated = store
+            .get_persons()
+            .into_iter()
+            .find(|p| p.id == person.id)
             .expect("updated person");
         assert_eq!(updated.locality, Some("Rotterdam".to_string()));
 
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn update_person_address_invalid_form_renders_template(
-        pool: PgPool,
-    ) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn update_person_address_invalid_form_renders_template() -> Result<(), AppError> {
+        let store = AppStore::default();
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person_with_last_name(PersonId::new(), "Jansen");
 
-        candidate_lists::create_candidate_list(&pool, &list).await?;
-        persons::create_person(&pool, &person).await?;
-        candidate_lists::update_candidate_list_order(&pool, list_id, &[person.id]).await?;
+        candidate_lists::create_candidate_list(&store, &list).await?;
+        store.update(AppEvent::CreatePerson(person.clone())).await?;
+        candidate_lists::update_candidate_list_order(&store, list_id, &[person.id]).await?;
 
-        let full_list = candidate_lists::get_full_candidate_list(&pool, list_id)
+        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
             .await?
             .expect("candidate list");
-        let candidate = candidate_lists::get_candidate(&pool, list_id, person.id).await?;
+        let candidate = candidate_lists::get_candidate(&store, list_id, person.id).await?;
 
-        let context = Context::new_test(pool.clone()).await;
+        let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let mut form = sample_address_form(&csrf_token);
         form.postal_code = "a".to_string();
@@ -215,12 +218,11 @@ mod tests {
             context,
             full_list,
             candidate,
-            State(pool.clone()),
+            State(store),
             Query(InitialEditQuery::new()),
             Form(form),
         )
-        .await
-        .unwrap()
+        .await?
         .into_response();
 
         assert_eq!(response.status(), StatusCode::OK);

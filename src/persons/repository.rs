@@ -2,7 +2,6 @@ use chrono::Utc;
 use sqlx::PgPool;
 
 use crate::{
-    candidate_lists::CandidateListId,
     pagination::SortDirection,
     persons::{Gender, Person, PersonId, PersonSort},
 };
@@ -18,19 +17,6 @@ pub async fn count_persons(db: &PgPool) -> Result<i64, sqlx::Error> {
     .await?;
 
     Ok(record.count)
-}
-
-pub async fn list_persons_not_on_candidate_list(
-    db: &PgPool,
-    candidate_list_id: CandidateListId,
-) -> Result<Vec<Person>, sqlx::Error> {
-    sqlx::query_file_as!(
-        Person,
-        "sql/persons/list_persons_not_on_candidate_list.sql",
-        candidate_list_id.uuid(),
-    )
-    .fetch_all(db)
-    .await
 }
 
 pub async fn list_persons(
@@ -144,10 +130,9 @@ mod tests {
     use sqlx::PgPool;
 
     use crate::{
-        candidate_lists,
         pagination::SortDirection,
         persons::PersonSort,
-        test_utils::{sample_candidate_list, sample_person, sample_person_with_last_name},
+        test_utils::{sample_person, sample_person_with_last_name},
     };
 
     #[sqlx::test]
@@ -238,25 +223,6 @@ mod tests {
         assert_eq!(updated.house_number, Some("99".to_string()));
         assert_eq!(updated.house_number_addition, None);
         assert_eq!(updated.street_name, Some("Nieuweweg".to_string()));
-
-        Ok(())
-    }
-
-    #[sqlx::test]
-    async fn excludes_persons_on_candidate_list(pool: PgPool) -> Result<(), sqlx::Error> {
-        let list_id = CandidateListId::new();
-        let list = sample_candidate_list(list_id);
-        let person_a = sample_person_with_last_name(PersonId::new(), "Jansen");
-        let person_b = sample_person_with_last_name(PersonId::new(), "Bakker");
-
-        candidate_lists::create_candidate_list(&pool, &list).await?;
-        create_person(&pool, &person_a).await?;
-        create_person(&pool, &person_b).await?;
-        candidate_lists::update_candidate_list_order(&pool, list_id, &[person_a.id]).await?;
-
-        let persons = list_persons_not_on_candidate_list(&pool, list_id).await?;
-        assert_eq!(persons.len(), 1);
-        assert_eq!(persons[0].id, person_b.id);
 
         Ok(())
     }

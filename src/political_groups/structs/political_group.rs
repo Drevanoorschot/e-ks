@@ -3,10 +3,11 @@ use crate::{
     political_groups::{AuthorisedAgentId, ListSubmitterId},
 };
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 id_newtype!(pub struct PoliticalGroupId);
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct PoliticalGroup {
     pub id: PoliticalGroupId,
 

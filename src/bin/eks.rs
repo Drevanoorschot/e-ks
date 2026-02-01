@@ -42,7 +42,7 @@ async fn run(listener: TcpListener) -> Result<(), AppError> {
                 .expect("Failed to run migrations");
 
             // Load fixtures
-            eks::fixtures::load(&state.pool).await?;
+            eks::fixtures::load(&state.pool, &state.store).await?;
         }
     }
 

@@ -4,16 +4,14 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::Form;
-use sqlx::PgPool;
 
 use crate::{
-    AppError, Context, ElectionConfig, HtmlTemplate,
+    AppError, AppStore, Context, ElectionConfig, HtmlTemplate,
     candidate_lists::{
         self, CandidateList, CandidateListForm, CandidateListSummary, pages::CandidateListNewPath,
     },
     filters,
     form::{FormData, Validate},
-    persons,
     persons::Person,
 };
 
@@ -21,18 +19,18 @@ use crate::{
 #[template(path = "candidate_lists/create.html")]
 struct CandidateListCreateTemplate {
     candidate_lists: Vec<CandidateListSummary>,
-    total_persons: i64,
+    total_persons: usize,
     form: FormData<CandidateListForm>,
 }
 
 pub async fn new_candidate_list_form(
     _: CandidateListNewPath,
     context: Context,
-    State(pool): State<PgPool>,
+    State(store): State<AppStore>,
 ) -> Result<impl IntoResponse, AppError> {
-    let candidate_lists = candidate_lists::list_candidate_list_summary(&pool).await?;
-    let total_persons = persons::count_persons(&pool).await?;
-    let used_districts = candidate_lists::get_used_districts(&pool, vec![]).await?;
+    let candidate_lists = candidate_lists::list_candidate_list_summary(&store)?;
+    let total_persons = store.get_person_count();
+    let used_districts = candidate_lists::get_used_districts(&store, vec![])?;
     let available_districts = context.election.available_districts(used_districts);
 
     let form = FormData::new_with_data(
@@ -57,13 +55,13 @@ pub async fn new_candidate_list_form(
 pub async fn create_candidate_list(
     _: CandidateListNewPath,
     context: Context,
-    State(pool): State<PgPool>,
+    State(store): State<AppStore>,
     Form(form): Form<CandidateListForm>,
 ) -> Result<Response, AppError> {
     match form.validate_create(&context.csrf_tokens) {
         Err(form_data) => {
-            let candidate_lists = candidate_lists::list_candidate_list_summary(&pool).await?;
-            let total_persons = persons::count_persons(&pool).await?;
+            let candidate_lists = candidate_lists::list_candidate_list_summary(&store)?;
+            let total_persons = store.get_person_count();
 
             Ok(HtmlTemplate(
                 CandidateListCreateTemplate {
@@ -77,7 +75,7 @@ pub async fn create_candidate_list(
         }
         Ok(candidate_list) => {
             let candidate_list =
-                candidate_lists::create_candidate_list(&pool, &candidate_list).await?;
+                candidate_lists::create_candidate_list(&store, &candidate_list).await?;
             Ok(Redirect::to(&candidate_list.view_path()).into_response())
         }
     }
@@ -93,21 +91,21 @@ mod test {
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
-    use sqlx::PgPool;
 
     use crate::{
-        Context, ElectoralDistrict, TokenValue, candidate_lists, test_utils::response_body_string,
+        AppStore, Context, ElectoralDistrict, TokenValue, candidate_lists,
+        test_utils::response_body_string,
     };
 
-    #[sqlx::test]
-    async fn new_candidate_list_form_renders_csrf_field(pool: PgPool) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn new_candidate_list_form_renders_csrf_field() -> Result<(), AppError> {
+        let store = AppStore::default();
         let response = new_candidate_list_form(
             CandidateListNewPath {},
-            Context::new_test(pool.clone()).await,
-            State(pool.clone()),
+            Context::new_test_without_db(),
+            State(store),
         )
-        .await
-        .unwrap()
+        .await?
         .into_response();
 
         assert_eq!(StatusCode::OK, response.status());
@@ -118,9 +116,10 @@ mod test {
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn create_candidate_list_persists_and_redirects(pool: PgPool) -> Result<(), sqlx::Error> {
-        let context = Context::new_test(pool.clone()).await;
+    #[tokio::test]
+    async fn create_candidate_list_persists_and_redirects() -> Result<(), AppError> {
+        let store = AppStore::default();
+        let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let form = CandidateListForm {
             electoral_districts: vec![ElectoralDistrict::UT],
@@ -130,11 +129,10 @@ mod test {
         let response = create_candidate_list(
             CandidateListNewPath {},
             context,
-            State(pool.clone()),
+            State(store.clone()),
             Form(form),
         )
-        .await
-        .unwrap();
+        .await?;
 
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         let location = response
@@ -144,17 +142,16 @@ mod test {
             .to_str()
             .expect("location header value");
 
-        let lists = candidate_lists::list_candidate_list_summary(&pool).await?;
+        let lists = candidate_lists::list_candidate_list_summary(&store)?;
         assert_eq!(lists.len(), 1);
         assert_eq!(location, lists[0].list.view_path());
 
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn create_candidate_list_invalid_form_renders_template(
-        pool: PgPool,
-    ) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn create_candidate_list_invalid_form_renders_template() -> Result<(), AppError> {
+        let store = AppStore::default();
         let form = CandidateListForm {
             electoral_districts: vec![ElectoralDistrict::UT],
             csrf_token: TokenValue("invalid".to_string()),
@@ -162,12 +159,11 @@ mod test {
 
         let response = create_candidate_list(
             CandidateListNewPath {},
-            Context::new_test(pool.clone()).await,
-            State(pool.clone()),
+            Context::new_test_without_db(),
+            State(store),
             Form(form),
         )
-        .await
-        .unwrap();
+        .await?;
 
         assert_eq!(StatusCode::OK, response.status());
         let body = response_body_string(response).await;
@@ -176,8 +172,8 @@ mod test {
         Ok(())
     }
 
-    #[test]
-    fn test_determine_available_districts() {
+    #[tokio::test]
+    async fn test_determine_available_districts() {
         let election = ElectionConfig::EK2027;
         let all_districts = election.electoral_districts().to_vec();
 

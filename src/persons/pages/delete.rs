@@ -6,7 +6,7 @@ use axum_extra::extract::Form;
 use sqlx::PgPool;
 
 use crate::{
-    AppError, Context, candidate_lists,
+    AppError, AppStore, Context, candidate_lists,
     form::{EmptyForm, Validate},
     persons::{self, Person, pages::DeletePersonPath},
 };
@@ -14,6 +14,7 @@ use crate::{
 pub async fn delete_person(
     DeletePersonPath { person_id }: DeletePersonPath,
     context: Context,
+    State(store): State<AppStore>,
     State(pool): State<PgPool>,
     Form(form): Form<EmptyForm>,
 ) -> Result<Response, AppError> {
@@ -23,8 +24,8 @@ pub async fn delete_person(
             Ok(Redirect::to(&Person::list_path()).into_response())
         }
         Ok(_) => {
-            match candidate_lists::remove_candidate(&pool, person_id).await {
-                Err(sqlx::Error::RowNotFound) => {
+            match candidate_lists::remove_candidate(&store, person_id).await {
+                Err(AppError::NotFound(_)) => {
                     // Candidate was not part of any candidate list, continue deletion
                 }
                 Err(e) => return Err(e.into()),
@@ -45,7 +46,7 @@ mod tests {
     use sqlx::PgPool;
 
     use crate::{
-        Context,
+        AppStore, Context,
         persons::{self, PersonId},
         test_utils::sample_person,
     };
@@ -63,6 +64,7 @@ mod tests {
         let response = delete_person(
             DeletePersonPath { person_id },
             context,
+            State(AppStore::default()),
             State(pool.clone()),
             Form(EmptyForm::new(csrf_token)),
         )

@@ -25,6 +25,7 @@ pub fn sample_candidate_list(id: CandidateListId) -> CandidateList {
     CandidateList {
         id,
         electoral_districts: vec![ElectoralDistrict::UT],
+        candidates: vec![],
         created_at: Utc::now(),
         updated_at: Utc::now(),
     }
