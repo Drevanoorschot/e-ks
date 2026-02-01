@@ -1,16 +1,15 @@
 use chrono::Utc;
-use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    AppError,
+    AppError, AppStore,
     political_groups::{
         self, AuthorisedAgent, AuthorisedAgentId, ListSubmitter, ListSubmitterId, PoliticalGroup,
         PoliticalGroupId,
     },
 };
 
-pub async fn load(db: &PgPool) -> Result<(), AppError> {
+pub async fn load(store: &AppStore) -> Result<(), AppError> {
     let political_group_id: PoliticalGroupId =
         Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_political_group").into();
 
@@ -37,10 +36,10 @@ pub async fn load(db: &PgPool) -> Result<(), AppError> {
         updated_at: Utc::now(),
     };
 
-    let political_group = political_groups::create_political_group(db, &political_group).await?;
+    let political_group = political_groups::create_political_group(store, &political_group).await?;
 
     political_groups::create_authorised_agent(
-        db,
+        store,
         political_group.id,
         &AuthorisedAgent {
             id: agent_1_id,
@@ -59,7 +58,7 @@ pub async fn load(db: &PgPool) -> Result<(), AppError> {
     .await?;
 
     political_groups::create_authorised_agent(
-        db,
+        store,
         political_group.id,
         &AuthorisedAgent {
             id: agent_2_id,
@@ -78,7 +77,7 @@ pub async fn load(db: &PgPool) -> Result<(), AppError> {
     .await?;
 
     political_groups::create_list_submitter(
-        db,
+        store,
         political_group.id,
         &ListSubmitter {
             id: submitter_1_id,
@@ -97,7 +96,7 @@ pub async fn load(db: &PgPool) -> Result<(), AppError> {
     .await?;
 
     political_groups::create_list_submitter(
-        db,
+        store,
         political_group.id,
         &ListSubmitter {
             id: submitter_2_id,
@@ -148,20 +147,24 @@ mod tests {
         .await
     }
 
-    #[sqlx::test]
-    async fn test_load(pool: PgPool) {
-        let mut conn = pool.acquire().await.unwrap();
-        load(&pool).await.unwrap();
+    #[tokio::test]
+    async fn test_load() {
+        let store = AppStore::default();
+        load(&store).await.unwrap();
 
-        let groups = get_political_groups(&mut conn).await.unwrap();
+        let groups = vec![
+            political_groups::get_single_political_group(&store)
+                .unwrap()
+                .expect("political group"),
+        ];
         assert_eq!(groups.len(), 1);
 
-        let list_submitters = political_groups::get_list_submitters(&pool, groups[0].id)
+        let list_submitters = political_groups::get_list_submitters(&store, groups[0].id)
             .await
             .unwrap();
         assert_eq!(list_submitters.len(), 2);
 
-        let authorised_count = political_groups::get_authorised_agents(&pool, groups[0].id)
+        let authorised_count = political_groups::get_authorised_agents(&store, groups[0].id)
             .await
             .unwrap()
             .len();

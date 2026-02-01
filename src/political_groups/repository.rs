@@ -1,411 +1,239 @@
-use crate::political_groups::{
-    AuthorisedAgent, AuthorisedAgentId, ListSubmitter, ListSubmitterId, PoliticalGroup,
-    PoliticalGroupId,
+use crate::{
+    AppError, AppStore,
+    common::store::AppEvent,
+    political_groups::{
+        AuthorisedAgent, ListSubmitter, ListSubmitterId, PoliticalGroup, PoliticalGroupId,
+    },
 };
 use chrono::Utc;
-use sqlx::PgPool;
 
-pub async fn get_single_political_group(
-    db: &PgPool,
-) -> Result<Option<PoliticalGroup>, sqlx::Error> {
-    sqlx::query_as!(
-        PoliticalGroup,
-        r#"
-        SELECT id,
-               long_list_allowed,
-               legal_name,
-               legal_name_confirmed,
-               display_name,
-               display_name_confirmed,
-               authorised_agent_id AS "authorised_agent_id:AuthorisedAgentId",
-               list_submitter_id AS "list_submitter_id:ListSubmitterId",
-               created_at,
-               updated_at
-        FROM political_groups
-        ORDER BY created_at ASC
-        LIMIT 1
-        "#,
-    )
-    .fetch_optional(db)
-    .await
+pub fn get_single_political_group(store: &AppStore) -> Result<Option<PoliticalGroup>, AppError> {
+    let political_group = store.get_political_group();
+
+    if political_group.legal_name.is_empty()
+        && political_group.display_name.is_empty()
+        && political_group.long_list_allowed.is_none()
+        && political_group.legal_name_confirmed.is_none()
+        && political_group.display_name_confirmed.is_none()
+        && political_group.authorised_agent_id.is_none()
+        && political_group.list_submitter_id.is_none()
+    {
+        return Ok(None);
+    }
+
+    Ok(Some(political_group))
 }
 
 pub async fn update_political_group(
-    db: &PgPool,
+    store: &AppStore,
     political_group: &PoliticalGroup,
-) -> Result<PoliticalGroup, sqlx::Error> {
-    sqlx::query_as!(
-        PoliticalGroup,
-        r#"
-        UPDATE political_groups
-        SET
-            long_list_allowed = $1,
-            legal_name = $2,
-            legal_name_confirmed = $3,
-            display_name = $4,
-            display_name_confirmed = $5,
-            authorised_agent_id = $6,
-            list_submitter_id = $7,
-            updated_at = $8
-        WHERE id = $9
-        RETURNING id,
-            long_list_allowed,
-            legal_name,
-            legal_name_confirmed,
-            display_name,
-            display_name_confirmed,
-            authorised_agent_id AS "authorised_agent_id:AuthorisedAgentId",
-            list_submitter_id AS "list_submitter_id:ListSubmitterId",
-            created_at,
-            updated_at
-        "#,
-        political_group.long_list_allowed,
-        &political_group.legal_name,
-        political_group.legal_name_confirmed,
-        &political_group.display_name,
-        political_group.display_name_confirmed,
-        &political_group.authorised_agent_id as _,
-        &political_group.list_submitter_id as _,
-        Utc::now(),
-        political_group.id.uuid(),
-    )
-    .fetch_one(db)
-    .await
+) -> Result<PoliticalGroup, AppError> {
+    let existing = get_single_political_group(store)?
+        .ok_or_else(|| AppError::NotFound("Political group not found.".to_string()))?;
+
+    let updated = PoliticalGroup {
+        created_at: existing.created_at,
+        updated_at: Utc::now(),
+        ..political_group.clone()
+    };
+
+    store
+        .update(AppEvent::UpdatePoliticalGroup(updated.clone()))
+        .await?;
+
+    Ok(updated)
 }
 
 #[cfg(any(test, feature = "fixtures"))]
 pub async fn create_political_group(
-    db: &PgPool,
+    store: &AppStore,
     political_group: &PoliticalGroup,
-) -> Result<PoliticalGroup, sqlx::Error> {
-    sqlx::query_as!(
-        PoliticalGroup,
-        r#"
-        INSERT INTO political_groups (
-            id,
-            long_list_allowed,
-            legal_name,
-            legal_name_confirmed,
-            display_name,
-            display_name_confirmed,
-            authorised_agent_id,
-            list_submitter_id,
-            created_at,
-            updated_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        RETURNING id,
-            long_list_allowed,
-            legal_name,
-            legal_name_confirmed,
-            display_name,
-            display_name_confirmed,
-            authorised_agent_id AS "authorised_agent_id:AuthorisedAgentId",
-            list_submitter_id AS "list_submitter_id:ListSubmitterId",
-            created_at,
-            updated_at
-        "#,
-        political_group.id.uuid(),
-        political_group.long_list_allowed,
-        &political_group.legal_name,
-        political_group.legal_name_confirmed,
-        &political_group.display_name,
-        political_group.display_name_confirmed,
-        &political_group.authorised_agent_id as _,
-        &political_group.list_submitter_id as _,
-        &political_group.created_at,
-        &political_group.updated_at
-    )
-    .fetch_one(db)
-    .await
+) -> Result<PoliticalGroup, AppError> {
+    let now = Utc::now();
+    let political_group = PoliticalGroup {
+        created_at: now,
+        updated_at: now,
+        ..political_group.clone()
+    };
+
+    store
+        .update(AppEvent::UpdatePoliticalGroup(political_group.clone()))
+        .await?;
+
+    Ok(political_group)
 }
 
 pub async fn get_list_submitters(
-    db: &PgPool,
+    store: &AppStore,
     political_group_id: PoliticalGroupId,
-) -> Result<Vec<ListSubmitter>, sqlx::Error> {
-    sqlx::query_as!(
-        ListSubmitter,
-        r#"
-        SELECT id,
-               last_name,
-               last_name_prefix,
-               initials,
-               locality,
-               postal_code,
-               house_number,
-               house_number_addition,
-               street_name,
-               created_at,
-               updated_at
-        FROM list_submitters
-        WHERE political_group_id = $1
-        "#,
-        political_group_id.uuid()
-    )
-    .fetch_all(db)
-    .await
+) -> Result<Vec<ListSubmitter>, AppError> {
+    let political_group = get_single_political_group(store)?;
+    if political_group.map(|group| group.id) != Some(political_group_id) {
+        return Err(AppError::NotFound("Political group not found.".to_string()));
+    }
+
+    Ok(store.get_list_submitters())
 }
 
 pub async fn get_authorised_agents(
-    db: &PgPool,
+    store: &AppStore,
     political_group_id: PoliticalGroupId,
-) -> Result<Vec<AuthorisedAgent>, sqlx::Error> {
-    sqlx::query_as!(
-        AuthorisedAgent,
-        r#"
-        SELECT id,
-               last_name,
-               last_name_prefix,
-               initials,
-               locality,
-               postal_code,
-               house_number,
-               house_number_addition,
-               street_name,
-               created_at,
-               updated_at
-        FROM authorised_agents
-        WHERE political_group_id = $1
-        "#,
-        political_group_id.uuid()
-    )
-    .fetch_all(db)
-    .await
+) -> Result<Vec<AuthorisedAgent>, AppError> {
+    let political_group = get_single_political_group(store)?;
+    if political_group.map(|group| group.id) != Some(political_group_id) {
+        return Err(AppError::NotFound("Political group not found.".to_string()));
+    }
+
+    Ok(store.get_authorised_agents())
 }
 
 #[cfg(any(test, feature = "fixtures"))]
 pub async fn create_authorised_agent(
-    db: &PgPool,
+    store: &AppStore,
     political_group_id: PoliticalGroupId,
     authorised_agent: &AuthorisedAgent,
-) -> Result<AuthorisedAgent, sqlx::Error> {
-    sqlx::query_as!(
-        AuthorisedAgent,
-        r#"
-        INSERT INTO authorised_agents (id,
-                                      political_group_id,
-                                      last_name,
-                                      last_name_prefix,
-                                      initials,
-                                      locality,
-                                      postal_code,
-                                      house_number,
-                                      house_number_addition,
-                                      street_name,
-                                      created_at,
-                                      updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-        RETURNING
-            id,
-            last_name,
-            last_name_prefix,
-            initials,
-            locality,
-            postal_code,
-            house_number,
-            house_number_addition,
-            street_name,
-            created_at,
-            updated_at
-        "#,
-        authorised_agent.id.uuid(),
-        political_group_id.uuid(),
-        authorised_agent.last_name,
-        authorised_agent.last_name_prefix,
-        authorised_agent.initials,
-        authorised_agent.locality,
-        authorised_agent.postal_code,
-        authorised_agent.house_number,
-        authorised_agent.house_number_addition,
-        authorised_agent.street_name,
-        Utc::now(),
-        Utc::now(),
-    )
-    .fetch_one(db)
-    .await
+) -> Result<AuthorisedAgent, AppError> {
+    let political_group = get_single_political_group(store)?;
+    if political_group.map(|group| group.id) != Some(political_group_id) {
+        return Err(AppError::NotFound("Political group not found.".to_string()));
+    }
+
+    let now = Utc::now();
+    let authorised_agent = AuthorisedAgent {
+        created_at: now,
+        updated_at: now,
+        ..authorised_agent.clone()
+    };
+
+    store
+        .update(AppEvent::CreateAuthorisedAgent(authorised_agent.clone()))
+        .await?;
+
+    Ok(authorised_agent)
 }
 
 pub async fn get_list_submitter(
-    db: &PgPool,
+    store: &AppStore,
     political_group_id: PoliticalGroupId,
     submitter_id: &ListSubmitterId,
-) -> Result<ListSubmitter, sqlx::Error> {
-    sqlx::query_as!(
-        ListSubmitter,
-        r#"
-        SELECT id,
-               last_name,
-               last_name_prefix,
-               initials,
-               locality,
-               postal_code,
-               house_number,
-               house_number_addition,
-               street_name,
-               created_at,
-               updated_at
-        FROM list_submitters
-        WHERE political_group_id = $1 
-          AND id = $2
-        "#,
-        political_group_id.uuid(),
-        submitter_id.uuid()
-    )
-    .fetch_one(db)
-    .await
+) -> Result<ListSubmitter, AppError> {
+    let political_group = get_single_political_group(store)?;
+    if political_group.map(|group| group.id) != Some(political_group_id) {
+        return Err(AppError::NotFound("Political group not found.".to_string()));
+    }
+
+    store
+        .get_list_submitters()
+        .into_iter()
+        .find(|submitter| submitter.id == *submitter_id)
+        .ok_or_else(|| AppError::NotFound("List submitter not found.".to_string()))
 }
 
 pub async fn set_default_list_submitter(
-    db: &PgPool,
+    store: &AppStore,
     political_group_id: PoliticalGroupId,
     submitter_id: Option<ListSubmitterId>,
-) -> Result<(), sqlx::Error> {
-    sqlx::query!(
-        r#"
-        UPDATE political_groups
-        SET list_submitter_id = $1
-        WHERE id = $2
-        "#,
-        submitter_id.map(|id| id.uuid()),
-        political_group_id.uuid()
-    )
-    .execute(db)
-    .await?;
+) -> Result<(), AppError> {
+    let Some(mut political_group) = get_single_political_group(store)? else {
+        return Err(AppError::NotFound("Political group not found.".to_string()));
+    };
+    if political_group.id != political_group_id {
+        return Err(AppError::NotFound("Political group not found.".to_string()));
+    }
+
+    if let Some(id) = submitter_id {
+        let exists = store.get_list_submitters().iter().any(|s| s.id == id);
+        if !exists {
+            return Err(AppError::NotFound("List submitter not found.".to_string()));
+        }
+    }
+
+    political_group.list_submitter_id = submitter_id;
+    political_group.updated_at = Utc::now();
+
+    store
+        .update(AppEvent::UpdatePoliticalGroup(political_group))
+        .await?;
 
     Ok(())
 }
 
 pub async fn create_list_submitter(
-    db: &PgPool,
+    store: &AppStore,
     political_group_id: PoliticalGroupId,
     list_submitter: &ListSubmitter,
-) -> Result<ListSubmitter, sqlx::Error> {
-    sqlx::query_as!(
-        ListSubmitter,
-        r#"
-        INSERT INTO list_submitters (id,
-                                     political_group_id,
-                                     last_name,
-                                     last_name_prefix,
-                                     initials,
-                                     locality,
-                                     postal_code,
-                                     house_number,
-                                     house_number_addition,
-                                     street_name,
-                                     created_at,
-                                     updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-        RETURNING
-            id,
-            last_name,
-            last_name_prefix,
-            initials,
-            locality,
-            postal_code,
-            house_number,
-            house_number_addition,
-            street_name,
-            created_at,
-            updated_at
-        "#,
-        list_submitter.id.uuid(),
-        political_group_id.uuid(),
-        list_submitter.last_name,
-        list_submitter.last_name_prefix,
-        list_submitter.initials,
-        list_submitter.locality,
-        list_submitter.postal_code,
-        list_submitter.house_number,
-        list_submitter.house_number_addition,
-        list_submitter.street_name,
-        Utc::now(),
-        Utc::now(),
-    )
-    .fetch_one(db)
-    .await
+) -> Result<ListSubmitter, AppError> {
+    let political_group = get_single_political_group(store)?;
+    if political_group.map(|group| group.id) != Some(political_group_id) {
+        return Err(AppError::NotFound("Political group not found.".to_string()));
+    }
+
+    let now = Utc::now();
+    let list_submitter = ListSubmitter {
+        created_at: now,
+        updated_at: now,
+        ..list_submitter.clone()
+    };
+
+    store
+        .update(AppEvent::CreateListSubmitter(list_submitter.clone()))
+        .await?;
+
+    Ok(list_submitter)
 }
 
 pub async fn update_list_submitter(
-    db: &PgPool,
+    store: &AppStore,
     political_group_id: PoliticalGroupId,
     list_submitter: &ListSubmitter,
-) -> Result<ListSubmitter, sqlx::Error> {
-    sqlx::query_as!(
-        ListSubmitter,
-        r#"
-        UPDATE list_submitters
-        SET
-            last_name = $1,
-            last_name_prefix = $2,
-            initials = $3,
-            locality = $4,
-            postal_code = $5,
-            house_number = $6,
-            house_number_addition = $7,
-            street_name = $8,
-            updated_at = $9
-        WHERE political_group_id = $10
-          AND id = $11
-        RETURNING
-            id,
-            last_name,
-            last_name_prefix,
-            initials,
-            locality,
-            postal_code,
-            house_number,
-            house_number_addition,
-            street_name,
-            created_at,
-            updated_at
-        "#,
-        list_submitter.last_name,
-        list_submitter.last_name_prefix,
-        list_submitter.initials,
-        list_submitter.locality,
-        list_submitter.postal_code,
-        list_submitter.house_number,
-        list_submitter.house_number_addition,
-        list_submitter.street_name,
-        Utc::now(),
-        political_group_id.uuid(),
-        list_submitter.id.uuid(),
-    )
-    .fetch_one(db)
-    .await
+) -> Result<ListSubmitter, AppError> {
+    let political_group = get_single_political_group(store)?;
+    if political_group.map(|group| group.id) != Some(political_group_id) {
+        return Err(AppError::NotFound("Political group not found.".to_string()));
+    }
+
+    let existing = store
+        .get_list_submitters()
+        .into_iter()
+        .find(|submitter| submitter.id == list_submitter.id)
+        .ok_or_else(|| AppError::NotFound("List submitter not found.".to_string()))?;
+
+    let updated = ListSubmitter {
+        created_at: existing.created_at,
+        updated_at: Utc::now(),
+        ..list_submitter.clone()
+    };
+
+    store
+        .update(AppEvent::UpdateListSubmitter(updated.clone()))
+        .await?;
+
+    Ok(updated)
 }
 
 pub async fn remove_list_submitter(
-    db: &PgPool,
+    store: &AppStore,
     political_group_id: PoliticalGroupId,
     list_submitter_id: ListSubmitterId,
-) -> Result<(), sqlx::Error> {
-    sqlx::query!(
-        r#"
-        UPDATE political_groups
-        SET list_submitter_id = NULL
-        WHERE id = $1
-          AND list_submitter_id = $2
-        "#,
-        political_group_id.uuid(),
-        list_submitter_id.uuid()
-    )
-    .execute(db)
-    .await?;
+) -> Result<(), AppError> {
+    let Some(mut political_group) = get_single_political_group(store)? else {
+        return Err(AppError::NotFound("Political group not found.".to_string()));
+    };
+    if political_group.id != political_group_id {
+        return Err(AppError::NotFound("Political group not found.".to_string()));
+    }
 
-    sqlx::query!(
-        r#"
-        DELETE FROM list_submitters
-        WHERE political_group_id = $1
-          AND id = $2
-        "#,
-        political_group_id.uuid(),
-        list_submitter_id.uuid()
-    )
-    .execute(db)
-    .await?;
+    if political_group.list_submitter_id == Some(list_submitter_id) {
+        political_group.list_submitter_id = None;
+        political_group.updated_at = Utc::now();
+        store
+            .update(AppEvent::UpdatePoliticalGroup(political_group))
+            .await?;
+    }
+
+    store
+        .update(AppEvent::DeleteListSubmitter(list_submitter_id))
+        .await?;
 
     Ok(())
 }

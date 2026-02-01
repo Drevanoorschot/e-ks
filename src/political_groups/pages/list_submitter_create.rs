@@ -4,11 +4,10 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::Form;
-use sqlx::PgPool;
 
 use super::ListSubmitterNewPath;
 use crate::{
-    AppError, Context, HtmlTemplate, filters,
+    AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     political_groups::{
         self, ListSubmitter, ListSubmitterForm, PoliticalGroup, PreferredSubmitterForm,
@@ -26,10 +25,10 @@ struct ListSubmitterCreateTemplate {
 pub async fn new_list_submitter_form(
     _: ListSubmitterNewPath,
     context: Context,
-    State(pool): State<PgPool>,
+    State(store): State<AppStore>,
     political_group: PoliticalGroup,
 ) -> Result<impl IntoResponse, AppError> {
-    let list_submitters = political_groups::get_list_submitters(&pool, political_group.id).await?;
+    let list_submitters = political_groups::get_list_submitters(&store, political_group.id).await?;
 
     Ok(HtmlTemplate(
         ListSubmitterCreateTemplate {
@@ -45,10 +44,10 @@ pub async fn create_list_submitter(
     _: ListSubmitterNewPath,
     context: Context,
     political_group: PoliticalGroup,
-    State(pool): State<PgPool>,
+    State(store): State<AppStore>,
     Form(form): Form<ListSubmitterForm>,
 ) -> Result<Response, AppError> {
-    let list_submitters = political_groups::get_list_submitters(&pool, political_group.id).await?;
+    let list_submitters = political_groups::get_list_submitters(&store, political_group.id).await?;
 
     match form.validate_create(&context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
@@ -61,7 +60,7 @@ pub async fn create_list_submitter(
         )
         .into_response()),
         Ok(list_submitter) => {
-            political_groups::create_list_submitter(&pool, political_group.id, &list_submitter)
+            political_groups::create_list_submitter(&store, political_group.id, &list_submitter)
                 .await?;
             // TODO: set success flash message
             Ok(Redirect::to(&ListSubmitter::list_path()).into_response())
@@ -80,20 +79,21 @@ mod tests {
     use sqlx::PgPool;
 
     use crate::{
-        Context,
+        AppError, AppStore, Context,
         political_groups::{self, ListSubmitter, PoliticalGroupId},
         test_utils::{response_body_string, sample_list_submitter_form, sample_political_group},
     };
 
-    #[sqlx::test]
-    async fn new_list_submitter_form_renders_csrf_field(pool: PgPool) {
-        let context = Context::new_test(pool.clone()).await;
+    #[tokio::test]
+    async fn new_list_submitter_form_renders_csrf_field() {
+        let store = AppStore::default();
+        let context = Context::new_test_without_db();
         let group_id = PoliticalGroupId::new();
 
         let response = new_list_submitter_form(
             ListSubmitterNewPath {},
             context,
-            State(pool),
+            State(store),
             sample_political_group(group_id),
         )
         .await
@@ -106,13 +106,14 @@ mod tests {
         assert!(body.contains(&format!("action=\"{}\"", ListSubmitter::new_path())));
     }
 
-    #[sqlx::test]
-    async fn create_list_submitter_persists_and_redirects(pool: PgPool) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn create_list_submitter_persists_and_redirects() -> Result<(), AppError> {
+        let store = AppStore::default();
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
-        political_groups::create_political_group(&pool, &political_group).await?;
+        political_groups::create_political_group(&store, &political_group).await?;
 
-        let context = Context::new_test(pool.clone()).await;
+        let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let form = sample_list_submitter_form(&csrf_token);
 
@@ -120,7 +121,7 @@ mod tests {
             ListSubmitterNewPath {},
             context,
             political_group,
-            State(pool.clone()),
+            State(store.clone()),
             Form(form),
         )
         .await
@@ -135,21 +136,20 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, ListSubmitter::list_path());
 
-        let submitters = political_groups::get_list_submitters(&pool, group_id).await?;
+        let submitters = political_groups::get_list_submitters(&store, group_id).await?;
         assert_eq!(submitters.len(), 1);
 
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn create_list_submitter_invalid_form_renders_template(
-        pool: PgPool,
-    ) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn create_list_submitter_invalid_form_renders_template() -> Result<(), AppError> {
+        let store = AppStore::default();
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
-        political_groups::create_political_group(&pool, &political_group).await?;
+        political_groups::create_political_group(&store, &political_group).await?;
 
-        let context = Context::new_test(pool.clone()).await;
+        let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let mut form = sample_list_submitter_form(&csrf_token);
         form.last_name = " ".to_string();
@@ -158,7 +158,7 @@ mod tests {
             ListSubmitterNewPath {},
             context,
             political_group,
-            State(pool.clone()),
+            State(store),
             Form(form),
         )
         .await

@@ -27,25 +27,25 @@ pub async fn list_persons(
 mod tests {
     use super::*;
     use axum::{http::StatusCode, response::IntoResponse};
-    use sqlx::PgPool;
 
     use crate::{
-        Context,
+        AppError, AppStore, Context,
         pagination::Pagination,
         persons::{self, PersonId},
         test_utils::{response_body_string, sample_person},
     };
 
-    #[sqlx::test]
-    async fn list_persons_shows_created_person(pool: PgPool) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn list_persons_shows_created_person() -> Result<(), AppError> {
+        let store = AppStore::default();
         let id = PersonId::new();
         let person = sample_person(id);
 
-        persons::create_person(&pool, &person).await?;
+        persons::create_person(&store, &person).await?;
 
         let response = list_persons(
             PersonsPath {},
-            Context::new_test(pool.clone()).await,
+            Context::new_test_without_db(),
             PersonPagination {
                 persons: vec![person],
                 pagination: Pagination::default().set_total(1),

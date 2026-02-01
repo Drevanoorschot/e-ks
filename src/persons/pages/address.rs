@@ -4,10 +4,9 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::Form;
-use sqlx::PgPool;
 
 use crate::{
-    AppError, AppResponse, Context, HtmlTemplate, filters,
+    AppError, AppResponse, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     persons::{
         self, AddressForm, InitialEditQuery, Person, PersonPagination, PersonSort,
@@ -46,7 +45,7 @@ pub async fn update_person_address(
     _: EditPersonAddressPath,
     context: Context,
     person: Person,
-    State(pool): State<PgPool>,
+    State(store): State<AppStore>,
     person_pagination: PersonPagination,
     Query(query): Query<InitialEditQuery>,
     Form(form): Form<AddressForm>,
@@ -63,7 +62,7 @@ pub async fn update_person_address(
         )
         .into_response()),
         Ok(person) => {
-            persons::update_address(&pool, &person).await?;
+            persons::update_address(&store, &person).await?;
 
             Ok(Redirect::to(&Person::list_path()).into_response())
         }
@@ -79,24 +78,24 @@ mod tests {
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
-    use sqlx::PgPool;
 
     use crate::{
-        Context,
+        AppError, AppStore, Context,
         persons::{self, PersonId},
         test_utils::{response_body_string, sample_address_form, sample_person},
     };
 
-    #[sqlx::test]
-    async fn edit_person_address_renders_existing_person(pool: PgPool) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn edit_person_address_renders_existing_person() -> Result<(), AppError> {
+        let store = AppStore::default();
         let person_id: PersonId = PersonId::new();
         let person = sample_person(person_id);
 
-        persons::create_person(&pool, &person).await?;
+        persons::create_person(&store, &person).await?;
 
         let response = edit_person_address(
             EditPersonAddressPath { person_id },
-            Context::new_test(pool.clone()).await,
+            Context::new_test_without_db(),
             person,
             PersonPagination::empty(),
             Query(InitialEditQuery::new()),
@@ -112,14 +111,15 @@ mod tests {
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn update_person_address_persists_and_redirects(pool: PgPool) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn update_person_address_persists_and_redirects() -> Result<(), AppError> {
+        let store = AppStore::default();
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
-        persons::create_person(&pool, &person).await?;
+        persons::create_person(&store, &person).await?;
 
-        let context = Context::new_test(pool.clone()).await;
+        let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let form = sample_address_form(&csrf_token);
 
@@ -127,7 +127,7 @@ mod tests {
             EditPersonAddressPath { person_id },
             context,
             person,
-            State(pool.clone()),
+            State(store.clone()),
             PersonPagination::empty(),
             Query(InitialEditQuery::new()),
             Form(form),
@@ -145,24 +145,21 @@ mod tests {
 
         assert_eq!(location, Person::list_path());
 
-        let updated = persons::get_person(&pool, person_id)
-            .await?
-            .expect("updated person");
+        let updated = persons::get_person(&store, person_id).expect("updated person");
         assert_eq!(updated.locality, Some("Juinen".to_string()));
 
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn update_person_address_invalid_form_renders_template(
-        pool: PgPool,
-    ) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn update_person_address_invalid_form_renders_template() -> Result<(), AppError> {
+        let store = AppStore::default();
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
-        persons::create_person(&pool, &person).await?;
+        persons::create_person(&store, &person).await?;
 
-        let context = Context::new_test(pool.clone()).await;
+        let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let mut form = sample_address_form(&csrf_token);
         form.postal_code = "a".to_string();
@@ -171,7 +168,7 @@ mod tests {
             EditPersonAddressPath { person_id },
             context,
             person,
-            State(pool.clone()),
+            State(store),
             PersonPagination::empty(),
             Query(InitialEditQuery::new()),
             Form(form),
@@ -187,21 +184,22 @@ mod tests {
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn update_person_address_dutch_xor_non_dutch(pool: PgPool) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn update_person_address_dutch_xor_non_dutch() -> Result<(), AppError> {
+        let store = AppStore::default();
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
-        persons::create_person(&pool, &person).await?;
+        persons::create_person(&store, &person).await?;
 
-        let context = Context::new_test(pool.clone()).await;
+        let context = Context::new_test_without_db();
 
         // Update with Dutch address (but all form fields filled)
         update_person_address(
             EditPersonAddressPath { person_id },
             context.clone(),
             person.clone(),
-            State(pool.clone()),
+            State(store.clone()),
             PersonPagination::empty(),
             Query(InitialEditQuery::new()),
             Form(AddressForm {
@@ -217,9 +215,7 @@ mod tests {
         .unwrap();
 
         // The international address should be removed because `is_dutch` is true
-        let updated = persons::get_person(&pool, person_id)
-            .await?
-            .expect("updated person");
+        let updated = persons::get_person(&store, person_id).expect("updated person");
         assert_eq!(updated.locality, Some("Juinen".to_string()));
         assert_eq!(updated.postal_code, Some("1234AB".to_string()));
         assert_eq!(updated.house_number, Some("10".to_string()));

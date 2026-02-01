@@ -1,15 +1,14 @@
 use axum::extract::{FromRef, FromRequestParts};
-use sqlx::PgPool;
 
 use crate::{
-    AppError,
+    AppError, AppStore,
     political_groups::{self, PoliticalGroup},
 };
 
 impl<S> FromRequestParts<S> for PoliticalGroup
 where
     S: Clone + Send + Sync + 'static,
-    PgPool: FromRef<S>,
+    AppStore: FromRef<S>,
 {
     type Rejection = AppError;
 
@@ -17,10 +16,9 @@ where
         _parts: &mut axum::http::request::Parts,
         state: &S,
     ) -> Result<Self, Self::Rejection> {
-        let pool = PgPool::from_ref(state);
+        let store = AppStore::from_ref(state);
 
-        political_groups::get_single_political_group(&pool)
-            .await?
+        political_groups::get_single_political_group(&store)?
             .ok_or_else(|| AppError::NotFound("Political group not found.".to_string()))
     }
 }

@@ -4,10 +4,9 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::Form;
-use sqlx::PgPool;
 
 use crate::{
-    AppError, Context, HtmlTemplate, filters,
+    AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     political_groups::{
         self, ListSubmitter, ListSubmitterForm, PoliticalGroup, PreferredSubmitterForm,
@@ -29,11 +28,11 @@ pub async fn edit_list_submitter(
     ListSubmitterEditPath { submitter_id }: ListSubmitterEditPath,
     context: Context,
     political_group: PoliticalGroup,
-    State(pool): State<PgPool>,
+    State(store): State<AppStore>,
 ) -> Result<Response, AppError> {
     let list_submitter =
-        political_groups::get_list_submitter(&pool, political_group.id, &submitter_id).await?;
-    let list_submitters = political_groups::get_list_submitters(&pool, political_group.id).await?;
+        political_groups::get_list_submitter(&store, political_group.id, &submitter_id).await?;
+    let list_submitters = political_groups::get_list_submitters(&store, political_group.id).await?;
 
     Ok(HtmlTemplate(
         ListSubmitterUpdateTemplate {
@@ -54,12 +53,12 @@ pub async fn update_list_submitter(
     ListSubmitterEditPath { submitter_id }: ListSubmitterEditPath,
     context: Context,
     political_group: PoliticalGroup,
-    State(pool): State<PgPool>,
+    State(store): State<AppStore>,
     Form(form): Form<ListSubmitterForm>,
 ) -> Result<Response, AppError> {
     let list_submitter =
-        political_groups::get_list_submitter(&pool, political_group.id, &submitter_id).await?;
-    let list_submitters = political_groups::get_list_submitters(&pool, political_group.id).await?;
+        political_groups::get_list_submitter(&store, political_group.id, &submitter_id).await?;
+    let list_submitters = political_groups::get_list_submitters(&store, political_group.id).await?;
 
     match form.validate_update(&list_submitter, &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
@@ -73,7 +72,7 @@ pub async fn update_list_submitter(
         )
         .into_response()),
         Ok(list_submitter) => {
-            political_groups::update_list_submitter(&pool, political_group.id, &list_submitter)
+            political_groups::update_list_submitter(&store, political_group.id, &list_submitter)
                 .await?;
 
             Ok(Redirect::to(&ListSubmitter::list_path()).into_response())
@@ -92,7 +91,7 @@ mod tests {
     use sqlx::PgPool;
 
     use crate::{
-        Context,
+        AppError, AppStore, Context,
         political_groups::{self, ListSubmitter, ListSubmitterId, PoliticalGroupId},
         test_utils::{
             response_body_string, sample_list_submitter, sample_list_submitter_form,
@@ -100,23 +99,23 @@ mod tests {
         },
     };
 
-    #[sqlx::test]
-    async fn edit_list_submitter_renders_existing_submitter(
-        pool: PgPool,
-    ) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn edit_list_submitter_renders_existing_submitter() -> Result<(), AppError> {
+        let store = AppStore::default();
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
         let submitter_id = ListSubmitterId::new();
         let list_submitter = sample_list_submitter(submitter_id);
 
-        political_groups::create_political_group(&pool, &political_group).await?;
-        political_groups::create_list_submitter(&pool, political_group.id, &list_submitter).await?;
+        political_groups::create_political_group(&store, &political_group).await?;
+        political_groups::create_list_submitter(&store, political_group.id, &list_submitter)
+            .await?;
 
         let response = edit_list_submitter(
             ListSubmitterEditPath { submitter_id },
-            Context::new_test(pool.clone()).await,
+            Context::new_test_without_db(),
             political_group,
-            State(pool.clone()),
+            State(store),
         )
         .await
         .unwrap()
@@ -129,17 +128,19 @@ mod tests {
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn update_list_submitter_persists_and_redirects(pool: PgPool) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn update_list_submitter_persists_and_redirects() -> Result<(), AppError> {
+        let store = AppStore::default();
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
         let submitter_id = ListSubmitterId::new();
         let list_submitter = sample_list_submitter(submitter_id);
 
-        political_groups::create_political_group(&pool, &political_group).await?;
-        political_groups::create_list_submitter(&pool, political_group.id, &list_submitter).await?;
+        political_groups::create_political_group(&store, &political_group).await?;
+        political_groups::create_list_submitter(&store, political_group.id, &list_submitter)
+            .await?;
 
-        let context = Context::new_test(pool.clone()).await;
+        let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let mut form = sample_list_submitter_form(&csrf_token);
         form.last_name = "Updated".to_string();
@@ -148,7 +149,7 @@ mod tests {
             ListSubmitterEditPath { submitter_id },
             context,
             political_group,
-            State(pool.clone()),
+            State(store.clone()),
             Form(form),
         )
         .await
@@ -163,25 +164,25 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, ListSubmitter::list_path());
 
-        let updated = political_groups::get_list_submitter(&pool, group_id, &submitter_id).await?;
+        let updated = political_groups::get_list_submitter(&store, group_id, &submitter_id).await?;
         assert_eq!(updated.last_name, "Updated");
 
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn update_list_submitter_invalid_form_renders_template(
-        pool: PgPool,
-    ) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn update_list_submitter_invalid_form_renders_template() -> Result<(), AppError> {
+        let store = AppStore::default();
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
         let submitter_id = ListSubmitterId::new();
         let list_submitter = sample_list_submitter(submitter_id);
 
-        political_groups::create_political_group(&pool, &political_group).await?;
-        political_groups::create_list_submitter(&pool, political_group.id, &list_submitter).await?;
+        political_groups::create_political_group(&store, &political_group).await?;
+        political_groups::create_list_submitter(&store, political_group.id, &list_submitter)
+            .await?;
 
-        let context = Context::new_test(pool.clone()).await;
+        let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let mut form = sample_list_submitter_form(&csrf_token);
         form.last_name = " ".to_string();
@@ -190,7 +191,7 @@ mod tests {
             ListSubmitterEditPath { submitter_id },
             context,
             political_group,
-            State(pool.clone()),
+            State(store),
             Form(form),
         )
         .await

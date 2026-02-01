@@ -8,9 +8,9 @@ mod political_groups;
 
 pub async fn load(pool: &PgPool, store: &AppStore) -> Result<(), AppError> {
     clear_database(pool).await?;
-    persons::load(pool).await?;
-    candidate_list::load(pool, store).await?;
-    political_groups::load(pool).await?;
+    persons::load(store).await?;
+    candidate_list::load(store).await?;
+    political_groups::load(store).await?;
 
     Ok(())
 }
@@ -39,15 +39,13 @@ mod tests {
         let store = AppStore::default();
         load(&pool, &store).await.unwrap();
         let persons = crate::persons::list_persons(
-            &pool,
+            &store,
             50,
             0,
             &crate::persons::PersonSort::LastName,
             &crate::pagination::SortDirection::Asc,
-        )
-        .await;
+        );
 
-        assert!(persons.is_ok());
-        assert_eq!(persons.unwrap().len(), 50);
+        assert_eq!(persons.len(), 50);
     }
 }

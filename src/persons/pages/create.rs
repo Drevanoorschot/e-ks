@@ -4,10 +4,9 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::Form;
-use sqlx::PgPool;
 
 use crate::{
-    AppError, Context, HtmlTemplate, filters,
+    AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     persons::{
         self, COUNTRY_CODES, Person, PersonForm, PersonPagination, PersonSort,
@@ -41,7 +40,7 @@ pub async fn new_person_form(
 pub async fn create_person(
     _: PersonsNewPath,
     context: Context,
-    State(pool): State<PgPool>,
+    State(store): State<AppStore>,
     person_pagination: PersonPagination,
     Form(form): Form<PersonForm>,
 ) -> Result<Response, AppError> {
@@ -56,7 +55,7 @@ pub async fn create_person(
         )
         .into_response()),
         Ok(person) => {
-            let person = persons::create_person(&pool, &person).await?;
+            let person = persons::create_person(&store, &person).await?;
 
             Ok(Redirect::to(&person.after_create_path()).into_response())
         }
@@ -71,16 +70,15 @@ mod tests {
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
-    use sqlx::PgPool;
 
     use crate::{
-        Context, persons,
+        AppError, AppStore, Context, persons,
         test_utils::{response_body_string, sample_person_form},
     };
 
-    #[sqlx::test]
-    async fn new_person_form_renders_csrf_field(pool: PgPool) {
-        let context = Context::new_test(pool).await;
+    #[tokio::test]
+    async fn new_person_form_renders_csrf_field() {
+        let context = Context::new_test_without_db();
 
         let response = new_person_form(PersonsNewPath {}, context, PersonPagination::empty())
             .await
@@ -94,16 +92,17 @@ mod tests {
         assert!(body.contains("action=\"/persons/new\""));
     }
 
-    #[sqlx::test]
-    async fn create_person_persists_and_redirects(pool: PgPool) -> Result<(), sqlx::Error> {
-        let context = Context::new_test(pool.clone()).await;
+    #[tokio::test]
+    async fn create_person_persists_and_redirects() -> Result<(), AppError> {
+        let store = AppStore::default();
+        let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let form = sample_person_form(&csrf_token);
 
         let response = create_person(
             PersonsNewPath {},
             context,
-            State(pool.clone()),
+            State(store.clone()),
             PersonPagination::empty(),
             Form(form),
         )
@@ -119,15 +118,16 @@ mod tests {
             .expect("location header value");
         assert!(location.contains("/address"));
 
-        let count = persons::count_persons(&pool).await?;
+        let count = persons::count_persons(&store);
         assert_eq!(count, 1);
 
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn create_person_invalid_form_renders_template(pool: PgPool) -> Result<(), sqlx::Error> {
-        let context = Context::new_test(pool.clone()).await;
+    #[tokio::test]
+    async fn create_person_invalid_form_renders_template() -> Result<(), AppError> {
+        let store = AppStore::default();
+        let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let mut form = sample_person_form(&csrf_token);
         form.last_name = " ".to_string();
@@ -135,7 +135,7 @@ mod tests {
         let response = create_person(
             PersonsNewPath {},
             context,
-            State(pool.clone()),
+            State(store),
             PersonPagination::empty(),
             Form(form),
         )

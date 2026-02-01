@@ -1,11 +1,9 @@
 use chrono::Utc;
-use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
     AppError, AppStore, ElectionConfig,
     candidate_lists::{self, CandidateList},
-    common::store::AppEvent,
     pagination::SortDirection,
     persons::{self, Person, PersonId},
 };
@@ -16,19 +14,15 @@ fn collect_person_ids(persons: Vec<Person>) -> Vec<PersonId> {
     persons.into_iter().map(|person| person.id).collect()
 }
 
-pub async fn load(db: &PgPool, store: &AppStore) -> Result<(), AppError> {
+pub async fn load(store: &AppStore) -> Result<(), AppError> {
     let electoral_districts = ElectionConfig::EK2027.electoral_districts().to_vec();
     let persons = persons::list_persons(
-        db,
+        store,
         FIXTURE_CANDIDATE_LIST_SIZE as i64,
         0,
         &persons::PersonSort::CreatedAt,
         &SortDirection::Asc,
-    )
-    .await?;
-    for person in &persons {
-        store.update(AppEvent::CreatePerson(person.clone())).await?;
-    }
+    );
     let person_ids = collect_person_ids(persons);
     let uuid = Uuid::new_v5(
         &Uuid::NAMESPACE_OID,
@@ -53,15 +47,13 @@ pub async fn load(db: &PgPool, store: &AppStore) -> Result<(), AppError> {
 
 #[cfg(test)]
 mod tests {
-    use sqlx::PgPool;
-
     use super::*;
 
-    #[sqlx::test]
-    async fn test_load(pool: PgPool) {
+    #[tokio::test]
+    async fn test_load() {
         let store = AppStore::default();
-        crate::fixtures::persons::load(&pool).await.unwrap();
-        load(&pool, &store).await.unwrap();
+        crate::fixtures::persons::load(&store).await.unwrap();
+        load(&store).await.unwrap();
 
         let lists = candidate_lists::list_candidate_list_summary(&store).unwrap();
 

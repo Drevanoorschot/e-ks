@@ -58,10 +58,28 @@ impl AppStore {
         data.candidate_lists.clone()
     }
 
+    pub fn get_political_group(&self) -> PoliticalGroup {
+        let data = self.data.read().unwrap();
+
+        data.political_group.clone()
+    }
+
     pub fn get_persons(&self) -> Vec<Person> {
         let data = self.data.read().unwrap();
 
         data.persons.clone()
+    }
+
+    pub fn get_authorised_agents(&self) -> Vec<AuthorisedAgent> {
+        let data = self.data.read().unwrap();
+
+        data.authororized_agents.clone()
+    }
+
+    pub fn get_list_submitters(&self) -> Vec<ListSubmitter> {
+        let data = self.data.read().unwrap();
+
+        data.list_submitters.clone()
     }
 
     pub fn get_person_count(&self) -> usize {

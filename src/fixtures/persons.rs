@@ -3,12 +3,12 @@ use std::io;
 use chrono::{NaiveDate, Utc};
 use csv::{ReaderBuilder, Trim};
 use serde::Deserialize;
-use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    AppError,
-    persons::{self, Gender, Person},
+    AppError, AppStore,
+    common::store::AppEvent,
+    persons::{Gender, Person},
 };
 
 const PERSONS_CSV: &str = include_str!("persons.csv");
@@ -77,7 +77,7 @@ impl PersonRecord {
     }
 }
 
-pub async fn load(db: &PgPool) -> Result<(), AppError> {
+pub async fn load(store: &AppStore) -> Result<(), AppError> {
     let mut reader = ReaderBuilder::new()
         .trim(Trim::All)
         .from_reader(PERSONS_CSV.as_bytes());
@@ -91,7 +91,7 @@ pub async fn load(db: &PgPool) -> Result<(), AppError> {
         })?;
 
         let person = record.into_person()?;
-        persons::create_person(db, &person).await?;
+        store.update(AppEvent::CreatePerson(person)).await?;
     }
 
     Ok(())
@@ -99,20 +99,17 @@ pub async fn load(db: &PgPool) -> Result<(), AppError> {
 
 #[cfg(test)]
 mod tests {
-    use sqlx::PgPool;
-
     use crate::{pagination::SortDirection, persons::PersonSort};
 
     use super::*;
 
-    #[sqlx::test]
-    async fn test_load(pool: PgPool) {
-        load(&pool).await.unwrap();
+    #[tokio::test]
+    async fn test_load() {
+        let store = AppStore::default();
+        load(&store).await.unwrap();
         let persons =
-            crate::persons::list_persons(&pool, 50, 0, &PersonSort::LastName, &SortDirection::Asc)
-                .await;
+            crate::persons::list_persons(&store, 50, 0, &PersonSort::LastName, &SortDirection::Asc);
 
-        assert!(persons.is_ok());
-        assert_eq!(persons.unwrap().len(), 50);
+        assert_eq!(persons.len(), 50);
     }
 }

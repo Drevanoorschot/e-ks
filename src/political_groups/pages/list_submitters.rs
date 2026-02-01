@@ -1,6 +1,6 @@
 use super::ListSubmittersPath;
 use crate::{
-    AppError, Context, HtmlTemplate, filters,
+    AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     political_groups::{self, ListSubmitter, PoliticalGroup, PreferredSubmitterForm},
 };
@@ -10,7 +10,6 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::Form;
-use sqlx::PgPool;
 
 #[derive(Template)]
 #[template(path = "political_groups/list_submitters.html")]
@@ -23,9 +22,9 @@ pub async fn list_submitters(
     _: ListSubmittersPath,
     context: Context,
     political_group: PoliticalGroup,
-    State(pool): State<PgPool>,
+    State(store): State<AppStore>,
 ) -> Result<impl IntoResponse, AppError> {
-    let list_submitters = political_groups::get_list_submitters(&pool, political_group.id).await?;
+    let list_submitters = political_groups::get_list_submitters(&store, political_group.id).await?;
 
     Ok(HtmlTemplate(
         ListSubmittersTemplate {
@@ -40,10 +39,10 @@ pub async fn update_list_submitters(
     _: ListSubmittersPath,
     context: Context,
     political_group: PoliticalGroup,
-    State(pool): State<PgPool>,
+    State(store): State<AppStore>,
     Form(form): Form<PreferredSubmitterForm>,
 ) -> Result<Response, AppError> {
-    let list_submitters = political_groups::get_list_submitters(&pool, political_group.id).await?;
+    let list_submitters = political_groups::get_list_submitters(&store, political_group.id).await?;
 
     match form.validate_update(&political_group, &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
@@ -56,7 +55,7 @@ pub async fn update_list_submitters(
         .into_response()),
         Ok(form_data) => {
             political_groups::set_default_list_submitter(
-                &pool,
+                &store,
                 political_group.id,
                 form_data.list_submitter_id,
             )
@@ -74,26 +73,28 @@ mod tests {
     use sqlx::PgPool;
 
     use crate::{
-        Context,
+        AppError, AppStore, Context,
         political_groups::{self, ListSubmitterId, PoliticalGroupId},
         test_utils::{response_body_string, sample_list_submitter, sample_political_group},
     };
 
-    #[sqlx::test]
-    async fn list_submitters_shows_created_submitter(pool: PgPool) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn list_submitters_shows_created_submitter() -> Result<(), AppError> {
+        let store = AppStore::default();
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
         let submitter_id = ListSubmitterId::new();
         let list_submitter = sample_list_submitter(submitter_id);
 
-        political_groups::create_political_group(&pool, &political_group).await?;
-        political_groups::create_list_submitter(&pool, political_group.id, &list_submitter).await?;
+        political_groups::create_political_group(&store, &political_group).await?;
+        political_groups::create_list_submitter(&store, political_group.id, &list_submitter)
+            .await?;
 
         let response = list_submitters(
             ListSubmittersPath {},
-            Context::new_test(pool.clone()).await,
+            Context::new_test_without_db(),
             political_group,
-            State(pool.clone()),
+            State(store),
         )
         .await
         .unwrap()
@@ -106,21 +107,23 @@ mod tests {
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn list_submitters_shows_edit_link(pool: PgPool) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn list_submitters_shows_edit_link() -> Result<(), AppError> {
+        let store = AppStore::default();
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
         let submitter_id = ListSubmitterId::new();
         let list_submitter = sample_list_submitter(submitter_id);
 
-        political_groups::create_political_group(&pool, &political_group).await?;
-        political_groups::create_list_submitter(&pool, political_group.id, &list_submitter).await?;
+        political_groups::create_political_group(&store, &political_group).await?;
+        political_groups::create_list_submitter(&store, political_group.id, &list_submitter)
+            .await?;
 
         let response = list_submitters(
             ListSubmittersPath {},
-            Context::new_test(pool.clone()).await,
+            Context::new_test_without_db(),
             political_group,
-            State(pool.clone()),
+            State(store),
         )
         .await
         .unwrap()

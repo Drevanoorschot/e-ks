@@ -7,7 +7,9 @@ use axum::{
 };
 use sqlx::PgPool;
 
-use crate::{AppError, CsrfTokens, ElectionConfig, Locale, political_groups::PoliticalGroup};
+use crate::{
+    AppError, AppStore, CsrfTokens, ElectionConfig, Locale, political_groups::PoliticalGroup,
+};
 
 #[derive(Clone)]
 pub struct Context {
@@ -34,10 +36,8 @@ impl Context {
 
     #[cfg(test)]
     pub async fn new_test(pool: PgPool) -> Self {
-        let political_group = crate::political_groups::get_single_political_group(&pool)
-            .await
-            .unwrap()
-            .unwrap_or_default();
+        let _ = pool;
+        let political_group = PoliticalGroup::default();
 
         Self::new(political_group, Locale::En, CsrfTokens::default())
     }
@@ -68,6 +68,7 @@ where
     S: Clone + Send + Sync + 'static,
     CsrfTokens: FromRef<S>,
     PgPool: FromRef<S>,
+    AppStore: FromRef<S>,
 {
     type Rejection = AppError;
 

@@ -4,10 +4,9 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::Form;
-use sqlx::PgPool;
 
 use crate::{
-    AppError, AppResponse, Context, HtmlTemplate, filters,
+    AppError, AppResponse, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     persons::{
         self, COUNTRY_CODES, Person, PersonForm, PersonPagination, PersonSort,
@@ -44,7 +43,7 @@ pub async fn edit_person_form(
 pub async fn update_person(
     _: EditPersonPath,
     context: Context,
-    State(pool): State<PgPool>,
+    State(store): State<AppStore>,
     person: Person,
     person_pagination: PersonPagination,
     Form(form): Form<PersonForm>,
@@ -61,7 +60,7 @@ pub async fn update_person(
         )
         .into_response()),
         Ok(person) => {
-            persons::update_person(&pool, &person).await?;
+            persons::update_person(&store, &person).await?;
 
             Ok(Redirect::to(&person.edit_address_path()).into_response())
         }
@@ -76,24 +75,24 @@ mod tests {
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
-    use sqlx::PgPool;
 
     use crate::{
-        Context,
+        AppError, AppStore, Context,
         persons::{self, PersonId},
         test_utils::{response_body_string, sample_person, sample_person_form},
     };
 
-    #[sqlx::test]
-    async fn edit_person_form_renders_existing_person(pool: PgPool) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn edit_person_form_renders_existing_person() -> Result<(), AppError> {
+        let store = AppStore::default();
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
-        persons::create_person(&pool, &person).await?;
+        persons::create_person(&store, &person).await?;
 
         let response = edit_person_form(
             EditPersonPath { person_id },
-            Context::new_test(pool.clone()).await,
+            Context::new_test_without_db(),
             person,
             PersonPagination::empty(),
         )
@@ -108,14 +107,15 @@ mod tests {
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn update_person_persists_and_redirects(pool: PgPool) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn update_person_persists_and_redirects() -> Result<(), AppError> {
+        let store = AppStore::default();
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
-        persons::create_person(&pool, &person).await?;
+        persons::create_person(&store, &person).await?;
 
-        let context = Context::new_test(pool.clone()).await;
+        let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let mut form = sample_person_form(&csrf_token);
         form.last_name = "Updated".to_string();
@@ -123,7 +123,7 @@ mod tests {
         let response = update_person(
             EditPersonPath { person_id },
             context,
-            State(pool.clone()),
+            State(store.clone()),
             person,
             PersonPagination::empty(),
             Form(form),
@@ -140,22 +140,21 @@ mod tests {
             .expect("location header value");
         assert!(location.ends_with("/address"));
 
-        let updated = persons::get_person(&pool, person_id)
-            .await?
-            .expect("updated person");
+        let updated = persons::get_person(&store, person_id).expect("updated person");
         assert_eq!(updated.last_name, "Updated");
 
         Ok(())
     }
 
-    #[sqlx::test]
-    async fn update_person_invalid_form_renders_template(pool: PgPool) -> Result<(), sqlx::Error> {
+    #[tokio::test]
+    async fn update_person_invalid_form_renders_template() -> Result<(), AppError> {
+        let store = AppStore::default();
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
-        persons::create_person(&pool, &person).await?;
+        persons::create_person(&store, &person).await?;
 
-        let context = Context::new_test(pool.clone()).await;
+        let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let mut form = sample_person_form(&csrf_token);
         form.last_name = " ".to_string();
@@ -163,7 +162,7 @@ mod tests {
         let response = update_person(
             EditPersonPath { person_id },
             context,
-            State(pool.clone()),
+            State(store),
             person,
             PersonPagination::empty(),
             Form(form),
