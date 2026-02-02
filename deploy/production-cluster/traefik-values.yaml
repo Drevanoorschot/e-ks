@@ -1,0 +1,39 @@
+providers:
+  kubernetesCRD:
+    allowCrossNamespace: true
+  kubernetesGateway:
+    enabled: true
+  kubernetesIngress:
+    enabled: true
+  kubernetesIngressNginx:
+    enabled: false
+
+service:
+  annotations:
+    service.beta.kubernetes.io/scw-loadbalancer-type: lb-s
+    #                                                    195.154.197.78                       2001:bc8:710:710a::
+    service.beta.kubernetes.io/scw-loadbalancer-ip-ids: "7ae3f10f-4bbc-4967-beeb-85e9aedb84fd,21db3d6a-f02f-499f-b753-538d3d613f7d"
+
+gateway:
+  name: "traefik"
+  listeners:
+    web:
+      port: 8000
+      protocol: HTTP
+      namespacePolicy:
+        from: All
+    websecure:
+      port: 8443
+      protocol: HTTPS
+      certificateRefs:
+        - kind: Secret
+          name: eks-tls-cert
+      namespacePolicy:
+        from: All
+
+gatewayClass:
+  name: "traefik"
+
+
+deployment:
+  replicas: 2
