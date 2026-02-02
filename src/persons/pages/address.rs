@@ -9,7 +9,7 @@ use crate::{
     AppError, AppResponse, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     persons::{
-        self, AddressForm, InitialEditQuery, Person, PersonPagination, PersonSort,
+        AddressForm, InitialEditQuery, Person, PersonPagination, PersonSort,
         pages::EditPersonAddressPath,
     },
 };
@@ -62,7 +62,7 @@ pub async fn update_person_address(
         )
         .into_response()),
         Ok(person) => {
-            persons::update_address(&store, &person).await?;
+            person.update_address(&store).await?;
 
             Ok(Redirect::to(&Person::list_path()).into_response())
         }
@@ -91,7 +91,7 @@ mod tests {
         let person_id: PersonId = PersonId::new();
         let person = sample_person(person_id);
 
-        persons::create_person(&store, &person).await?;
+        person.create(&store).await?;
 
         let response = edit_person_address(
             EditPersonAddressPath { person_id },
@@ -117,7 +117,7 @@ mod tests {
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
-        persons::create_person(&store, &person).await?;
+        person.create(&store).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
@@ -145,7 +145,7 @@ mod tests {
 
         assert_eq!(location, Person::list_path());
 
-        let updated = persons::get_person(&store, person_id).expect("updated person");
+        let updated = store.get_person(person_id).expect("updated person");
         assert_eq!(updated.locality, Some("Juinen".to_string()));
 
         Ok(())
@@ -157,7 +157,7 @@ mod tests {
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
-        persons::create_person(&store, &person).await?;
+        person.create(&store).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
@@ -190,7 +190,7 @@ mod tests {
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
-        persons::create_person(&store, &person).await?;
+        person.create(&store).await?;
 
         let context = Context::new_test_without_db();
 
@@ -215,7 +215,7 @@ mod tests {
         .unwrap();
 
         // The international address should be removed because `is_dutch` is true
-        let updated = persons::get_person(&store, person_id).expect("updated person");
+        let updated = store.get_person(person_id).expect("updated person");
         assert_eq!(updated.locality, Some("Juinen".to_string()));
         assert_eq!(updated.postal_code, Some("1234AB".to_string()));
         assert_eq!(updated.house_number, Some("10".to_string()));

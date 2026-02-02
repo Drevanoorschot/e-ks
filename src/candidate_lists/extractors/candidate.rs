@@ -3,7 +3,7 @@ use sqlx::PgPool;
 
 use crate::{
     AppError, AppStore, Context, CsrfTokens,
-    candidate_lists::{self, Candidate},
+    candidate_lists::{Candidate, CandidateList},
     trans,
 };
 
@@ -27,7 +27,7 @@ where
         let Path(CandidateListAndPersonPathParams { list_id, person_id }) =
             Path::<CandidateListAndPersonPathParams>::from_request_parts(parts, state).await?;
 
-        let candidate = candidate_lists::get_candidate(&store, list_id, person_id)
+        let candidate = CandidateList::get_candidate(&store, list_id, person_id)
             .await
             .map_err(|err| match err {
                 AppError::NotFound(_) => AppError::NotFound(
@@ -79,7 +79,7 @@ mod tests {
             .update(AppEvent::CreatePerson(person.clone()))
             .await
             .unwrap();
-        candidate_lists::update_candidate_list_order(&app_state.store, list_id, &[person.id])
+        CandidateList::update_order(&app_state.store, list_id, &[person.id])
             .await
             .unwrap();
 

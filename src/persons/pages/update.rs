@@ -9,7 +9,7 @@ use crate::{
     AppError, AppResponse, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     persons::{
-        self, COUNTRY_CODES, Person, PersonForm, PersonPagination, PersonSort,
+        COUNTRY_CODES, Person, PersonForm, PersonPagination, PersonSort,
         pages::EditPersonPath,
     },
 };
@@ -60,7 +60,7 @@ pub async fn update_person(
         )
         .into_response()),
         Ok(person) => {
-            persons::update_person(&store, &person).await?;
+            person.update(&store).await?;
 
             Ok(Redirect::to(&person.edit_address_path()).into_response())
         }
@@ -88,7 +88,7 @@ mod tests {
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
-        persons::create_person(&store, &person).await?;
+        person.create(&store).await?;
 
         let response = edit_person_form(
             EditPersonPath { person_id },
@@ -113,7 +113,7 @@ mod tests {
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
-        persons::create_person(&store, &person).await?;
+        person.create(&store).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
@@ -140,7 +140,7 @@ mod tests {
             .expect("location header value");
         assert!(location.ends_with("/address"));
 
-        let updated = persons::get_person(&store, person_id).expect("updated person");
+        let updated = store.get_person(person_id).expect("updated person");
         assert_eq!(updated.last_name, "Updated");
 
         Ok(())
@@ -152,7 +152,7 @@ mod tests {
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
-        persons::create_person(&store, &person).await?;
+        person.create(&store).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;

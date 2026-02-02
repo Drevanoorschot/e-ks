@@ -6,7 +6,7 @@ use axum_extra::extract::Form;
 
 use crate::{
     AppError, AppStore, Context,
-    candidate_lists::{self, CandidateList, pages::CandidateListsDeletePath},
+    candidate_lists::{CandidateList, pages::CandidateListsDeletePath},
     form::{EmptyForm, Validate},
 };
 
@@ -20,7 +20,7 @@ pub async fn delete_candidate_list(
     match form.validate_create(&context.csrf_tokens) {
         Err(_) => Ok(Redirect::to(&candidate_list.update_path()).into_response()),
         Ok(_) => {
-            candidate_lists::remove_candidate_list(&store, candidate_list.id).await?;
+            CandidateList::delete_by_id(&store, candidate_list.id).await?;
             Ok(Redirect::to(&CandidateList::list_path()).into_response())
         }
     }
@@ -50,7 +50,7 @@ mod tests {
             created_at: DateTime::default(),
             updated_at: DateTime::default(),
         };
-        candidate_lists::create_candidate_list(&store, &candidate_list).await?;
+        candidate_list.create(&store).await?;
 
         let response = delete_candidate_list(
             CandidateListsDeletePath {
@@ -75,7 +75,7 @@ mod tests {
         assert_eq!(location, CandidateList::list_path());
 
         // verify deletion (i.e. no lists in database left)
-        let lists = candidate_lists::list_candidate_list_summary(&store)?;
+        let lists = CandidateList::list_summary(&store)?;
         assert_eq!(lists.len(), 0);
 
         Ok(())
@@ -93,7 +93,7 @@ mod tests {
             created_at: DateTime::default(),
             updated_at: DateTime::default(),
         };
-        candidate_lists::create_candidate_list(&store, &candidate_list).await?;
+        candidate_list.create(&store).await?;
 
         let response = delete_candidate_list(
             CandidateListsDeletePath {
@@ -118,7 +118,7 @@ mod tests {
         assert_eq!(location, candidate_list.update_path());
 
         // verify deletion didn't go through (i.e. still 1 list in database left)
-        let lists = candidate_lists::list_candidate_list_summary(&store)?;
+        let lists = CandidateList::list_summary(&store)?;
         assert_eq!(lists.len(), 1);
 
         Ok(())

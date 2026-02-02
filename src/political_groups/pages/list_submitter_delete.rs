@@ -7,7 +7,7 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppStore, Context,
     form::{EmptyForm, Validate},
-    political_groups::{self, PoliticalGroup},
+    political_groups::{self, ListSubmitter, PoliticalGroup},
 };
 
 use super::{ListSubmitterDeletePath, ListSubmitterEditPath};
@@ -24,8 +24,7 @@ pub async fn delete_list_submitter(
             Ok(Redirect::to(&ListSubmitterEditPath { submitter_id }.to_string()).into_response())
         }
         Ok(_) => {
-            political_groups::remove_list_submitter(&store, political_group.id, submitter_id)
-                .await?;
+            ListSubmitter::delete_by_id(&store, political_group.id, submitter_id).await?;
 
             Ok(Redirect::to(&political_groups::ListSubmitter::list_path()).into_response())
         }
@@ -36,7 +35,6 @@ pub async fn delete_list_submitter(
 mod tests {
     use super::*;
     use axum_extra::extract::Form;
-    use sqlx::PgPool;
 
     use crate::{
         AppError, AppStore, Context, TokenValue,
@@ -52,11 +50,12 @@ mod tests {
         let submitter_id = ListSubmitterId::new();
         let list_submitter = sample_list_submitter(submitter_id);
 
-        political_groups::create_political_group(&store, &political_group).await?;
-        political_groups::create_list_submitter(&store, political_group.id, &list_submitter)
+        political_group.create(&store).await?;
+        list_submitter
+            .create(&store, political_group.id)
             .await?;
         political_group.list_submitter_id = Some(submitter_id);
-        political_groups::update_political_group(&store, &political_group).await?;
+        political_group.update(&store).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
@@ -80,11 +79,11 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, ListSubmitter::list_path());
 
-        let submitters = political_groups::get_list_submitters(&store, group_id).await?;
+        let submitters = PoliticalGroup::list_submitters(&store, group_id)?;
         assert!(submitters.is_empty());
 
         let political_group =
-            political_groups::get_single_political_group(&store)?.expect("political group");
+            PoliticalGroup::get_single(&store)?.expect("political group");
         assert!(political_group.list_submitter_id.is_none());
 
         Ok(())
@@ -98,11 +97,12 @@ mod tests {
         let submitter_id = ListSubmitterId::new();
         let list_submitter = sample_list_submitter(submitter_id);
 
-        political_groups::create_political_group(&store, &political_group).await?;
-        political_groups::create_list_submitter(&store, political_group.id, &list_submitter)
+        political_group.create(&store).await?;
+        list_submitter
+            .create(&store, political_group.id)
             .await?;
         political_group.list_submitter_id = Some(submitter_id);
-        political_groups::update_political_group(&store, &political_group).await?;
+        political_group.update(&store).await?;
 
         let context = Context::new_test_without_db();
 
@@ -125,11 +125,11 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, ListSubmitterEditPath { submitter_id }.to_string());
 
-        let submitters = political_groups::get_list_submitters(&store, group_id).await?;
+        let submitters = PoliticalGroup::list_submitters(&store, group_id)?;
         assert_eq!(submitters.len(), 1);
 
         let political_group =
-            political_groups::get_single_political_group(&store)?.expect("political group");
+            PoliticalGroup::get_single(&store)?.expect("political group");
         assert_eq!(political_group.list_submitter_id, Some(submitter_id));
 
         Ok(())

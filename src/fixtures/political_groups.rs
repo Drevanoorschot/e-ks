@@ -4,7 +4,7 @@ use uuid::Uuid;
 use crate::{
     AppError, AppStore,
     political_groups::{
-        self, AuthorisedAgent, AuthorisedAgentId, ListSubmitter, ListSubmitterId, PoliticalGroup,
+        AuthorisedAgent, AuthorisedAgentId, ListSubmitter, ListSubmitterId, PoliticalGroup,
         PoliticalGroupId,
     },
 };
@@ -36,83 +36,71 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
         updated_at: Utc::now(),
     };
 
-    let political_group = political_groups::create_political_group(store, &political_group).await?;
+    let political_group = political_group.create(store).await?;
 
-    political_groups::create_authorised_agent(
-        store,
-        political_group.id,
-        &AuthorisedAgent {
-            id: agent_1_id,
-            last_name: "Jansen".to_string(),
-            last_name_prefix: Some("de".to_string()),
-            initials: "A.B.".to_string(),
-            locality: "Utrecht".to_string(),
-            postal_code: "3511 AA".to_string(),
-            house_number: "10".to_string(),
-            house_number_addition: Some("A".to_string()),
-            street_name: "Oude Gracht".to_string(),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-        },
-    )
-    .await?;
+    AuthorisedAgent {
+        id: agent_1_id,
+        last_name: "Jansen".to_string(),
+        last_name_prefix: Some("de".to_string()),
+        initials: "A.B.".to_string(),
+        locality: "Utrecht".to_string(),
+        postal_code: "3511 AA".to_string(),
+        house_number: "10".to_string(),
+        house_number_addition: Some("A".to_string()),
+        street_name: "Oude Gracht".to_string(),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    }
+        .create(store, political_group.id)
+        .await?;
 
-    political_groups::create_authorised_agent(
-        store,
-        political_group.id,
-        &AuthorisedAgent {
-            id: agent_2_id,
-            last_name: "Visser".to_string(),
-            last_name_prefix: None,
-            initials: "C.D.".to_string(),
-            locality: "Amersfoort".to_string(),
-            postal_code: "3811 BB".to_string(),
-            house_number: "25".to_string(),
-            house_number_addition: None,
-            street_name: "Langegracht".to_string(),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-        },
-    )
-    .await?;
+    AuthorisedAgent {
+        id: agent_2_id,
+        last_name: "Visser".to_string(),
+        last_name_prefix: None,
+        initials: "C.D.".to_string(),
+        locality: "Amersfoort".to_string(),
+        postal_code: "3811 BB".to_string(),
+        house_number: "25".to_string(),
+        house_number_addition: None,
+        street_name: "Langegracht".to_string(),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    }
+        .create(store, political_group.id)
+        .await?;
 
-    political_groups::create_list_submitter(
-        store,
-        political_group.id,
-        &ListSubmitter {
-            id: submitter_1_id,
-            last_name: "Bos".to_string(),
-            last_name_prefix: None,
-            initials: "E.F.".to_string(),
-            locality: "Rotterdam".to_string(),
-            postal_code: "3011 CC".to_string(),
-            house_number: "5".to_string(),
-            house_number_addition: Some("B".to_string()),
-            street_name: "Coolsingel".to_string(),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-        },
-    )
-    .await?;
+    ListSubmitter {
+        id: submitter_1_id,
+        last_name: "Bos".to_string(),
+        last_name_prefix: None,
+        initials: "E.F.".to_string(),
+        locality: "Rotterdam".to_string(),
+        postal_code: "3011 CC".to_string(),
+        house_number: "5".to_string(),
+        house_number_addition: Some("B".to_string()),
+        street_name: "Coolsingel".to_string(),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    }
+        .create(store, political_group.id)
+        .await?;
 
-    political_groups::create_list_submitter(
-        store,
-        political_group.id,
-        &ListSubmitter {
-            id: submitter_2_id,
-            last_name: "Smit".to_string(),
-            last_name_prefix: Some("van".to_string()),
-            initials: "G.H.".to_string(),
-            locality: "Den Haag".to_string(),
-            postal_code: "2511 DD".to_string(),
-            house_number: "18".to_string(),
-            house_number_addition: None,
-            street_name: "Spui".to_string(),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-        },
-    )
-    .await?;
+    ListSubmitter {
+        id: submitter_2_id,
+        last_name: "Smit".to_string(),
+        last_name_prefix: Some("van".to_string()),
+        initials: "G.H.".to_string(),
+        locality: "Den Haag".to_string(),
+        postal_code: "2511 DD".to_string(),
+        house_number: "18".to_string(),
+        house_number_addition: None,
+        street_name: "Spui".to_string(),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
+    }
+        .create(store, political_group.id)
+        .await?;
 
     Ok(())
 }
@@ -153,19 +141,16 @@ mod tests {
         load(&store).await.unwrap();
 
         let groups = vec![
-            political_groups::get_single_political_group(&store)
+            PoliticalGroup::get_single(&store)
                 .unwrap()
                 .expect("political group"),
         ];
         assert_eq!(groups.len(), 1);
 
-        let list_submitters = political_groups::get_list_submitters(&store, groups[0].id)
-            .await
-            .unwrap();
+        let list_submitters = PoliticalGroup::list_submitters(&store, groups[0].id).unwrap();
         assert_eq!(list_submitters.len(), 2);
 
-        let authorised_count = political_groups::get_authorised_agents(&store, groups[0].id)
-            .await
+        let authorised_count = PoliticalGroup::list_authorised_agents(&store, groups[0].id)
             .unwrap()
             .len();
         assert_eq!(authorised_count, 2);

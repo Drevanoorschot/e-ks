@@ -21,10 +21,10 @@ where
         let pagination: Pagination<PersonSort> =
             Pagination::from_request_parts(parts, state).await?;
 
-        let total_items = persons::count_persons(&store) as u64;
+        let total_items = persons::Person::count(&store);
         let pagination = pagination.set_total(total_items);
 
-        let persons = persons::list_persons(
+        let persons = persons::Person::list(
             &store,
             pagination.limit(),
             pagination.offset(),

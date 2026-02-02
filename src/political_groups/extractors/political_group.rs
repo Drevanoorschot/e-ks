@@ -2,7 +2,7 @@ use axum::extract::{FromRef, FromRequestParts};
 
 use crate::{
     AppError, AppStore,
-    political_groups::{self, PoliticalGroup},
+    political_groups::PoliticalGroup,
 };
 
 impl<S> FromRequestParts<S> for PoliticalGroup
@@ -18,7 +18,7 @@ where
     ) -> Result<Self, Self::Rejection> {
         let store = AppStore::from_ref(state);
 
-        political_groups::get_single_political_group(&store)?
+        PoliticalGroup::get_single(&store)?
             .ok_or_else(|| AppError::NotFound("Political group not found.".to_string()))
     }
 }

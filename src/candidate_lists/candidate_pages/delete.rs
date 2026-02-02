@@ -7,7 +7,7 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppStore, Context,
     candidate_lists::{
-        self, Candidate, CandidateList, candidate_pages::CandidateListDeletePersonPath,
+        Candidate, CandidateList, candidate_pages::CandidateListDeletePersonPath,
     },
     common::store::AppEvent,
     form::{EmptyForm, Validate},
@@ -27,7 +27,7 @@ pub async fn delete_person(
             Ok(Redirect::to(&candidate.edit_path()).into_response())
         }
         Ok(_) => {
-            candidate_lists::remove_candidate(&store, candidate.person.id).await?;
+            CandidateList::remove_candidate_from_all(&store, candidate.person.id).await?;
             store
                 .update(AppEvent::DeletePerson(candidate.person.id))
                 .await?;
@@ -59,18 +59,18 @@ mod tests {
         let person = sample_person(PersonId::new());
         let other_person = sample_person_with_last_name(PersonId::new(), "Other");
 
-        candidate_lists::create_candidate_list(&store, &list).await?;
+        list.create(&store).await?;
         store.update(AppEvent::CreatePerson(person.clone())).await?;
         store
             .update(AppEvent::CreatePerson(other_person.clone()))
             .await?;
-        candidate_lists::update_candidate_list_order(
+        CandidateList::update_order(
             &store,
             list_id,
             &[person.id, other_person.id],
         )
         .await?;
-        let candidate = candidate_lists::get_candidate(&store, list_id, person.id).await?;
+        let candidate = CandidateList::get_candidate(&store, list_id, person.id).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
@@ -97,14 +97,14 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, list.view_path());
 
-        let updated_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let updated_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(updated_list.candidates.len(), 1);
         assert_eq!(updated_list.candidates[0].person.id, other_person.id);
 
-        let removed = store.get_persons().into_iter().find(|p| p.id == person.id);
-        assert!(removed.is_none());
+        let removed = store.get_person(person.id);
+        assert!(removed.is_err());
 
         Ok(())
     }

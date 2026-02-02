@@ -2,7 +2,7 @@ use super::ListSubmittersPath;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
-    political_groups::{self, ListSubmitter, PoliticalGroup, PreferredSubmitterForm},
+    political_groups::{ListSubmitter, PoliticalGroup, PreferredSubmitterForm},
 };
 use askama::Template;
 use axum::{
@@ -24,7 +24,7 @@ pub async fn list_submitters(
     political_group: PoliticalGroup,
     State(store): State<AppStore>,
 ) -> Result<impl IntoResponse, AppError> {
-    let list_submitters = political_groups::get_list_submitters(&store, political_group.id).await?;
+    let list_submitters = PoliticalGroup::list_submitters(&store, political_group.id)?;
 
     Ok(HtmlTemplate(
         ListSubmittersTemplate {
@@ -42,7 +42,7 @@ pub async fn update_list_submitters(
     State(store): State<AppStore>,
     Form(form): Form<PreferredSubmitterForm>,
 ) -> Result<Response, AppError> {
-    let list_submitters = political_groups::get_list_submitters(&store, political_group.id).await?;
+    let list_submitters = PoliticalGroup::list_submitters(&store, political_group.id)?;
 
     match form.validate_update(&political_group, &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
@@ -54,7 +54,7 @@ pub async fn update_list_submitters(
         )
         .into_response()),
         Ok(form_data) => {
-            political_groups::set_default_list_submitter(
+            PoliticalGroup::set_default_list_submitter(
                 &store,
                 political_group.id,
                 form_data.list_submitter_id,
@@ -70,7 +70,6 @@ pub async fn update_list_submitters(
 mod tests {
     use super::*;
     use axum::{http::StatusCode, response::IntoResponse};
-    use sqlx::PgPool;
 
     use crate::{
         AppError, AppStore, Context,
@@ -86,8 +85,9 @@ mod tests {
         let submitter_id = ListSubmitterId::new();
         let list_submitter = sample_list_submitter(submitter_id);
 
-        political_groups::create_political_group(&store, &political_group).await?;
-        political_groups::create_list_submitter(&store, political_group.id, &list_submitter)
+        political_group.create(&store).await?;
+        list_submitter
+            .create(&store, political_group.id)
             .await?;
 
         let response = list_submitters(
@@ -115,8 +115,9 @@ mod tests {
         let submitter_id = ListSubmitterId::new();
         let list_submitter = sample_list_submitter(submitter_id);
 
-        political_groups::create_political_group(&store, &political_group).await?;
-        political_groups::create_list_submitter(&store, political_group.id, &list_submitter)
+        political_group.create(&store).await?;
+        list_submitter
+            .create(&store, political_group.id)
             .await?;
 
         let response = list_submitters(

@@ -8,7 +8,7 @@ use chrono::Utc;
 
 use crate::{
     AppError, AppStore, Context, HtmlTemplate,
-    candidate_lists::{self, CandidateList, FullCandidateList, pages::CreateCandidatePath},
+    candidate_lists::{CandidateList, FullCandidateList, pages::CreateCandidatePath},
     common::store::AppEvent,
     filters,
     form::{FormData, Validate},
@@ -62,10 +62,10 @@ pub async fn create_person_candidate_list(
             person.updated_at = now;
             store.update(AppEvent::CreatePerson(person.clone())).await?;
 
-            candidate_lists::append_candidate_to_list(&store, full_list.id(), person.id).await?;
+            CandidateList::append_candidate(&store, full_list.id(), person.id).await?;
 
             let candidate =
-                candidate_lists::get_candidate(&store, full_list.id(), person.id).await?;
+                CandidateList::get_candidate(&store, full_list.id(), person.id).await?;
 
             Ok(Redirect::to(&candidate.after_create_path()).into_response())
         }
@@ -92,9 +92,9 @@ mod tests {
         let store = AppStore::default();
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
-        candidate_lists::create_candidate_list(&store, &list).await?;
+        list.create(&store).await?;
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
 
@@ -119,13 +119,13 @@ mod tests {
         let store = AppStore::default();
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
-        candidate_lists::create_candidate_list(&store, &list).await?;
+        list.create(&store).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let form = sample_person_form(&csrf_token);
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
 
@@ -146,7 +146,7 @@ mod tests {
             .to_str()
             .expect("location header value");
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(full_list.candidates.len(), 1);
@@ -161,14 +161,14 @@ mod tests {
         let store = AppStore::default();
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
-        candidate_lists::create_candidate_list(&store, &list).await?;
+        list.create(&store).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let mut form = sample_person_form(&csrf_token);
         form.last_name = " ".to_string();
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
 

@@ -10,7 +10,7 @@ use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     political_groups::{
-        self, ListSubmitter, ListSubmitterForm, PoliticalGroup, PreferredSubmitterForm,
+        ListSubmitter, ListSubmitterForm, PoliticalGroup, PreferredSubmitterForm,
     },
 };
 
@@ -28,7 +28,7 @@ pub async fn new_list_submitter_form(
     State(store): State<AppStore>,
     political_group: PoliticalGroup,
 ) -> Result<impl IntoResponse, AppError> {
-    let list_submitters = political_groups::get_list_submitters(&store, political_group.id).await?;
+    let list_submitters = PoliticalGroup::list_submitters(&store, political_group.id)?;
 
     Ok(HtmlTemplate(
         ListSubmitterCreateTemplate {
@@ -47,7 +47,7 @@ pub async fn create_list_submitter(
     State(store): State<AppStore>,
     Form(form): Form<ListSubmitterForm>,
 ) -> Result<Response, AppError> {
-    let list_submitters = political_groups::get_list_submitters(&store, political_group.id).await?;
+    let list_submitters = PoliticalGroup::list_submitters(&store, political_group.id)?;
 
     match form.validate_create(&context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
@@ -60,7 +60,8 @@ pub async fn create_list_submitter(
         )
         .into_response()),
         Ok(list_submitter) => {
-            political_groups::create_list_submitter(&store, political_group.id, &list_submitter)
+            list_submitter
+                .create(&store, political_group.id)
                 .await?;
             // TODO: set success flash message
             Ok(Redirect::to(&ListSubmitter::list_path()).into_response())
@@ -76,7 +77,6 @@ mod tests {
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
-    use sqlx::PgPool;
 
     use crate::{
         AppError, AppStore, Context,
@@ -111,7 +111,7 @@ mod tests {
         let store = AppStore::default();
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
-        political_groups::create_political_group(&store, &political_group).await?;
+        political_group.create(&store).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
@@ -136,7 +136,7 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, ListSubmitter::list_path());
 
-        let submitters = political_groups::get_list_submitters(&store, group_id).await?;
+        let submitters = PoliticalGroup::list_submitters(&store, group_id)?;
         assert_eq!(submitters.len(), 1);
 
         Ok(())
@@ -147,7 +147,7 @@ mod tests {
         let store = AppStore::default();
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
-        political_groups::create_political_group(&store, &political_group).await?;
+        political_group.create(&store).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;

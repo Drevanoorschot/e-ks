@@ -2,7 +2,12 @@ use chrono::{DateTime, NaiveDate};
 use serde::{Deserialize, Serialize};
 use sqlx::types::chrono::Utc;
 
-use crate::{id_newtype, persons::Gender};
+use crate::{
+    AppError, AppStore, id_newtype,
+    common::store::AppEvent,
+    pagination::SortDirection,
+    persons::{Gender, PersonSort},
+};
 
 id_newtype!(pub struct PersonId);
 
@@ -93,12 +98,159 @@ impl Person {
     pub fn is_complete(&self) -> bool {
         self.is_personal_info_complete() && self.is_address_complete()
     }
+
+    pub async fn create(&self, store: &AppStore) -> Result<Person, AppError> {
+        let now = Utc::now();
+        let person = Person {
+            created_at: now,
+            updated_at: now,
+            ..self.clone()
+        };
+
+        store.update(AppEvent::CreatePerson(person.clone())).await?;
+
+        Ok(person)
+    }
+
+    pub async fn update(&self, store: &AppStore) -> Result<Person, AppError> {
+        let existing = store.get_person(self.id)?;
+
+        let updated = Person {
+            locality: existing.locality,
+            postal_code: existing.postal_code,
+            house_number: existing.house_number,
+            house_number_addition: existing.house_number_addition,
+            street_name: existing.street_name,
+            created_at: existing.created_at,
+            updated_at: Utc::now(),
+            ..self.clone()
+        };
+
+        store
+            .update(AppEvent::UpdatePerson(updated.clone()))
+            .await?;
+
+        Ok(updated)
+    }
+
+    pub async fn update_address(&self, store: &AppStore) -> Result<Person, AppError> {
+        let existing = store.get_person(self.id)?;
+
+        let updated = Person {
+            locality: self.locality.clone(),
+            postal_code: self.postal_code.clone(),
+            house_number: self.house_number.clone(),
+            house_number_addition: self.house_number_addition.clone(),
+            street_name: self.street_name.clone(),
+            updated_at: Utc::now(),
+            ..existing
+        };
+
+        store
+            .update(AppEvent::UpdatePerson(updated.clone()))
+            .await?;
+
+        Ok(updated)
+    }
+
+    pub async fn delete(&self, store: &AppStore) -> Result<(), AppError> {
+        store.update(AppEvent::DeletePerson(self.id)).await?;
+
+        Ok(())
+    }
+
+    pub async fn delete_by_id(store: &AppStore, person_id: PersonId) -> Result<(), AppError> {
+        store.update(AppEvent::DeletePerson(person_id)).await?;
+
+        Ok(())
+    }
+
+    pub fn count(store: &AppStore) -> usize {
+        store.get_person_count()
+    }
+
+    pub fn list(
+        store: &AppStore,
+        limit: i64,
+        offset: i64,
+        sort_field: &PersonSort,
+        sort_direction: &SortDirection,
+    ) -> Vec<Person> {
+        let mut persons = store.get_persons();
+        persons.sort_by(|a, b| compare_persons(a, b, sort_field));
+
+        if matches!(sort_direction, SortDirection::Desc) {
+            persons.reverse();
+        }
+
+        let offset = offset.max(0) as usize;
+        let limit = limit.max(0) as usize;
+
+        persons.into_iter().skip(offset).take(limit).collect()
+    }
+}
+
+fn compare_persons(a: &Person, b: &Person, sort_field: &PersonSort) -> std::cmp::Ordering {
+    match sort_field {
+        PersonSort::LastName => cmp_string(&a.last_name, &b.last_name)
+            .then_with(|| cmp_option_string(&a.last_name_prefix, &b.last_name_prefix))
+            .then_with(|| cmp_string(&a.initials, &b.initials))
+            .then_with(|| a.id.cmp(&b.id)),
+        PersonSort::FirstName => cmp_option_string(&a.first_name, &b.first_name)
+            .then_with(|| cmp_string(&a.last_name, &b.last_name))
+            .then_with(|| a.id.cmp(&b.id)),
+        PersonSort::Initials => cmp_string(&a.initials, &b.initials)
+            .then_with(|| cmp_string(&a.last_name, &b.last_name))
+            .then_with(|| a.id.cmp(&b.id)),
+        PersonSort::Gender => cmp_gender(&a.gender, &b.gender)
+            .then_with(|| cmp_string(&a.last_name, &b.last_name))
+            .then_with(|| a.id.cmp(&b.id)),
+        PersonSort::PlaceOfResidence => {
+            cmp_option_string(&a.place_of_residence, &b.place_of_residence)
+                .then_with(|| cmp_string(&a.last_name, &b.last_name))
+                .then_with(|| a.id.cmp(&b.id))
+        }
+        PersonSort::CreatedAt => a
+            .created_at
+            .cmp(&b.created_at)
+            .then_with(|| a.id.cmp(&b.id)),
+        PersonSort::UpdatedAt => a
+            .updated_at
+            .cmp(&b.updated_at)
+            .then_with(|| a.id.cmp(&b.id)),
+    }
+}
+
+fn cmp_string(a: &str, b: &str) -> std::cmp::Ordering {
+    a.to_lowercase().cmp(&b.to_lowercase())
+}
+
+fn cmp_option_string(a: &Option<String>, b: &Option<String>) -> std::cmp::Ordering {
+    cmp_string(a.as_deref().unwrap_or(""), b.as_deref().unwrap_or(""))
+}
+
+fn cmp_gender(a: &Option<Gender>, b: &Option<Gender>) -> std::cmp::Ordering {
+    gender_rank(a).cmp(&gender_rank(b))
+}
+
+fn gender_rank(gender: &Option<Gender>) -> u8 {
+    match gender {
+        None => 0,
+        Some(Gender::Female) => 1,
+        Some(Gender::Male) => 2,
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use sqlx::types::chrono::Utc;
+    use crate::{
+        AppStore,
+        pagination::SortDirection,
+        persons::PersonSort,
+        test_utils::{sample_person, sample_person_with_last_name},
+    };
 
     fn base_person() -> Person {
         Person {
@@ -120,6 +272,99 @@ mod tests {
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }
+    }
+
+    #[tokio::test]
+    async fn create_and_get_person() -> Result<(), AppError> {
+        let store = AppStore::default();
+        let id = PersonId::new();
+        let person = sample_person(id);
+
+        person.create(&store).await?;
+
+        let loaded = store.get_person(id).expect("person");
+        assert_eq!(loaded.id, id);
+        assert_eq!(loaded.last_name, "Jansen");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn update_person_overwrites_fields() -> Result<(), AppError> {
+        let store = AppStore::default();
+        let id = PersonId::new();
+        let mut person = sample_person(id);
+
+        person.create(&store).await?;
+
+        person.last_name = "Updated".to_string();
+        person.update(&store).await?;
+
+        let updated = store.get_person(id).expect("person");
+        assert_eq!(updated.last_name, "Updated");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn remove_person_deletes_record() -> Result<(), AppError> {
+        let store = AppStore::default();
+        let id = PersonId::new();
+        let person = sample_person(id);
+
+        person.create(&store).await?;
+        person.delete(&store).await?;
+
+        let missing = store.get_person(id);
+        assert!(missing.is_err());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn update_address_overwrites_fields() -> Result<(), AppError> {
+        let store = AppStore::default();
+        let id = PersonId::new();
+        let mut person = sample_person(id);
+
+        person.create(&store).await?;
+
+        person.locality = Some("Nieuwegein".to_string());
+        person.postal_code = Some("9999 ZZ".to_string());
+        person.house_number = Some("99".to_string());
+        person.house_number_addition = None;
+        person.street_name = Some("Nieuweweg".to_string());
+
+        person.update_address(&store).await?;
+
+        let updated = store.get_person(id).expect("person");
+        assert_eq!(updated.locality, Some("Nieuwegein".to_string()));
+        assert_eq!(updated.postal_code, Some("9999 ZZ".to_string()));
+        assert_eq!(updated.house_number, Some("99".to_string()));
+        assert_eq!(updated.house_number_addition, None);
+        assert_eq!(updated.street_name, Some("Nieuweweg".to_string()));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn list_and_count_persons() -> Result<(), AppError> {
+        let store = AppStore::default();
+        sample_person_with_last_name(PersonId::new(), "Jansen")
+            .create(&store)
+            .await?;
+        sample_person_with_last_name(PersonId::new(), "Bakker")
+            .create(&store)
+            .await?;
+
+        let total = Person::count(&store);
+        assert_eq!(total, 2);
+
+        let persons = Person::list(&store, 10, 0, &PersonSort::LastName, &SortDirection::Asc);
+        assert_eq!(persons.len(), 2);
+        assert_eq!(persons[0].last_name, "Bakker");
+
+        Ok(())
     }
 
     #[test]

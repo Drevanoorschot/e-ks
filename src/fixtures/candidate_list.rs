@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::{
     AppError, AppStore, ElectionConfig,
-    candidate_lists::{self, CandidateList},
+    candidate_lists::CandidateList,
     pagination::SortDirection,
     persons::{self, Person, PersonId},
 };
@@ -16,7 +16,7 @@ fn collect_person_ids(persons: Vec<Person>) -> Vec<PersonId> {
 
 pub async fn load(store: &AppStore) -> Result<(), AppError> {
     let electoral_districts = ElectionConfig::EK2027.electoral_districts().to_vec();
-    let persons = persons::list_persons(
+    let persons = persons::Person::list(
         store,
         FIXTURE_CANDIDATE_LIST_SIZE as i64,
         0,
@@ -37,10 +37,10 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
         updated_at: Utc::now(),
     };
 
-    let candidate_list = candidate_lists::create_candidate_list(store, &candidate_list).await?;
+    let candidate_list = candidate_list.create(store).await?;
 
     // Persist the ordered set of persons to ensure deterministic candidate positions.
-    candidate_lists::update_candidate_list_order(store, candidate_list.id, &person_ids).await?;
+    CandidateList::update_order(store, candidate_list.id, &person_ids).await?;
 
     Ok(())
 }
@@ -55,7 +55,7 @@ mod tests {
         crate::fixtures::persons::load(&store).await.unwrap();
         load(&store).await.unwrap();
 
-        let lists = candidate_lists::list_candidate_list_summary(&store).unwrap();
+        let lists = CandidateList::list_summary(&store).unwrap();
 
         assert_eq!(lists.len(), 1);
         assert_eq!(lists[0].person_count, FIXTURE_CANDIDATE_LIST_SIZE);

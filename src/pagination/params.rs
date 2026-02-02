@@ -105,7 +105,7 @@ where
     /// Combine the current request with the number of available items to compute final pagination
     /// values. This clamps the current page within valid bounds and prepares the metadata we need
     /// for database queries and template rendering.
-    pub fn set_total(self, total_items: u64) -> PaginationInfo<S> {
+    pub fn set_total(self, total_items: usize) -> PaginationInfo<S> {
         info::to_info(self, total_items)
     }
 

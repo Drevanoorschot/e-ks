@@ -38,7 +38,7 @@ mod tests {
     async fn test_load_all_fixtures(pool: PgPool) {
         let store = AppStore::default();
         load(&pool, &store).await.unwrap();
-        let persons = crate::persons::list_persons(
+        let persons = crate::persons::Person::list(
             &store,
             50,
             0,

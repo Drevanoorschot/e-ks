@@ -3,7 +3,7 @@ use sqlx::PgPool;
 
 use crate::{
     AppError, AppStore, Context, CsrfTokens,
-    candidate_lists::{self, FullCandidateList},
+    candidate_lists::{CandidateList, FullCandidateList},
     trans,
 };
 
@@ -27,7 +27,7 @@ where
         let Path(CandidateListPathParams { list_id }) =
             Path::<CandidateListPathParams>::from_request_parts(parts, state).await?;
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .ok_or(AppError::NotFound(trans!(
                 "candidate_list.not_found",
@@ -78,7 +78,7 @@ mod tests {
             .update(AppEvent::CreatePerson(person.clone()))
             .await
             .unwrap();
-        candidate_lists::update_candidate_list_order(&app_state.store, list_id, &[person.id])
+        CandidateList::update_order(&app_state.store, list_id, &[person.id])
             .await
             .unwrap();
 

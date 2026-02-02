@@ -7,7 +7,7 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppStore, Context, candidate_lists,
     form::{EmptyForm, Validate},
-    persons::{self, Person, pages::DeletePersonPath},
+    persons::{Person, pages::DeletePersonPath},
 };
 
 pub async fn delete_person(
@@ -22,7 +22,7 @@ pub async fn delete_person(
             Ok(Redirect::to(&Person::list_path()).into_response())
         }
         Ok(_) => {
-            match candidate_lists::remove_candidate(&store, person_id).await {
+            match candidate_lists::CandidateList::remove_candidate_from_all(&store, person_id).await {
                 Err(AppError::NotFound(_)) => {
                     // Candidate was not part of any candidate list, continue deletion
                 }
@@ -30,7 +30,7 @@ pub async fn delete_person(
                 _ => {}
             }
 
-            persons::remove_person(&store, person_id).await?;
+            Person::delete_by_id(&store, person_id).await?;
             // TODO: set success flash message
             Ok(Redirect::to(&Person::list_path()).into_response())
         }
@@ -54,7 +54,7 @@ mod tests {
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
-        persons::create_person(&store, &person).await?;
+        person.create(&store).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
@@ -77,8 +77,8 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, Person::list_path());
 
-        let found = persons::get_person(&store, person_id);
-        assert!(found.is_none());
+        let found = store.get_person(person_id);
+        assert!(found.is_err());
 
         Ok(())
     }

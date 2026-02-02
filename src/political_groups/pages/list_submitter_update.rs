@@ -9,7 +9,7 @@ use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     political_groups::{
-        self, ListSubmitter, ListSubmitterForm, PoliticalGroup, PreferredSubmitterForm,
+        ListSubmitter, ListSubmitterForm, PoliticalGroup, PreferredSubmitterForm,
     },
 };
 
@@ -31,8 +31,8 @@ pub async fn edit_list_submitter(
     State(store): State<AppStore>,
 ) -> Result<Response, AppError> {
     let list_submitter =
-        political_groups::get_list_submitter(&store, political_group.id, &submitter_id).await?;
-    let list_submitters = political_groups::get_list_submitters(&store, political_group.id).await?;
+        PoliticalGroup::get_list_submitter(&store, political_group.id, submitter_id)?;
+    let list_submitters = PoliticalGroup::list_submitters(&store, political_group.id)?;
 
     Ok(HtmlTemplate(
         ListSubmitterUpdateTemplate {
@@ -57,8 +57,8 @@ pub async fn update_list_submitter(
     Form(form): Form<ListSubmitterForm>,
 ) -> Result<Response, AppError> {
     let list_submitter =
-        political_groups::get_list_submitter(&store, political_group.id, &submitter_id).await?;
-    let list_submitters = political_groups::get_list_submitters(&store, political_group.id).await?;
+        PoliticalGroup::get_list_submitter(&store, political_group.id, submitter_id)?;
+    let list_submitters = PoliticalGroup::list_submitters(&store, political_group.id)?;
 
     match form.validate_update(&list_submitter, &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
@@ -72,7 +72,8 @@ pub async fn update_list_submitter(
         )
         .into_response()),
         Ok(list_submitter) => {
-            political_groups::update_list_submitter(&store, political_group.id, &list_submitter)
+            list_submitter
+                .update(&store, political_group.id)
                 .await?;
 
             Ok(Redirect::to(&ListSubmitter::list_path()).into_response())
@@ -88,7 +89,6 @@ mod tests {
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
-    use sqlx::PgPool;
 
     use crate::{
         AppError, AppStore, Context,
@@ -107,8 +107,9 @@ mod tests {
         let submitter_id = ListSubmitterId::new();
         let list_submitter = sample_list_submitter(submitter_id);
 
-        political_groups::create_political_group(&store, &political_group).await?;
-        political_groups::create_list_submitter(&store, political_group.id, &list_submitter)
+        political_group.create(&store).await?;
+        list_submitter
+            .create(&store, political_group.id)
             .await?;
 
         let response = edit_list_submitter(
@@ -136,8 +137,9 @@ mod tests {
         let submitter_id = ListSubmitterId::new();
         let list_submitter = sample_list_submitter(submitter_id);
 
-        political_groups::create_political_group(&store, &political_group).await?;
-        political_groups::create_list_submitter(&store, political_group.id, &list_submitter)
+        political_group.create(&store).await?;
+        list_submitter
+            .create(&store, political_group.id)
             .await?;
 
         let context = Context::new_test_without_db();
@@ -164,7 +166,7 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, ListSubmitter::list_path());
 
-        let updated = political_groups::get_list_submitter(&store, group_id, &submitter_id).await?;
+        let updated = PoliticalGroup::get_list_submitter(&store, group_id, submitter_id)?;
         assert_eq!(updated.last_name, "Updated");
 
         Ok(())
@@ -178,8 +180,9 @@ mod tests {
         let submitter_id = ListSubmitterId::new();
         let list_submitter = sample_list_submitter(submitter_id);
 
-        political_groups::create_political_group(&store, &political_group).await?;
-        political_groups::create_list_submitter(&store, political_group.id, &list_submitter)
+        political_group.create(&store).await?;
+        list_submitter
+            .create(&store, political_group.id)
             .await?;
 
         let context = Context::new_test_without_db();

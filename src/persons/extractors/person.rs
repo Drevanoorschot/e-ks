@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 use crate::{
     AppError, AppStore, Locale,
-    persons::{self, Person, PersonId},
+    persons::{Person, PersonId},
     trans,
 };
 
@@ -29,11 +29,14 @@ where
         let Path(PersonPathParams { person_id }) =
             Path::<PersonPathParams>::from_request_parts(parts, state).await?;
 
-        let person = persons::get_person(&store, person_id).ok_or(AppError::NotFound(trans!(
-            "person.not_found",
-            locale,
-            person_id
-        )))?;
+        let person = store.get_person(person_id).map_err(|err| match err {
+            AppError::NotFound(_) => AppError::NotFound(trans!(
+                "person.not_found",
+                locale,
+                person_id
+            )),
+            _ => err,
+        })?;
 
         Ok(person)
     }

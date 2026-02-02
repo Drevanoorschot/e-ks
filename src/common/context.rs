@@ -5,7 +5,6 @@ use axum::{
     extract::{FromRef, FromRequestParts},
     http::request::Parts,
 };
-use sqlx::PgPool;
 
 use crate::{
     AppError, AppStore, CsrfTokens, ElectionConfig, Locale, political_groups::PoliticalGroup,
@@ -35,8 +34,7 @@ impl Context {
     }
 
     #[cfg(test)]
-    pub async fn new_test(pool: PgPool) -> Self {
-        let _ = pool;
+    pub async fn new_test() -> Self {
         let political_group = PoliticalGroup::default();
 
         Self::new(political_group, Locale::En, CsrfTokens::default())
@@ -67,7 +65,6 @@ impl<S> FromRequestParts<S> for Context
 where
     S: Clone + Send + Sync + 'static,
     CsrfTokens: FromRef<S>,
-    PgPool: FromRef<S>,
     AppStore: FromRef<S>,
 {
     type Rejection = AppError;
@@ -86,8 +83,8 @@ mod tests {
     use super::*;
 
     #[sqlx::test]
-    async fn new_context_sets_locale(pool: PgPool) {
-        let context = Context::new_test(pool).await;
+    async fn new_context_sets_locale() {
+        let context = Context::new_test().await;
         assert_eq!(context.locale, Locale::En);
     }
 

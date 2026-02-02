@@ -8,7 +8,7 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate,
     candidate_lists::{
-        self, Candidate, CandidateList, CandidatePosition, CandidatePositionAction,
+        Candidate, CandidateList, CandidatePosition, CandidatePositionAction,
         CandidatePositionForm, FullCandidateList, candidate_pages::EditCandidatePositionPath,
     },
     filters,
@@ -78,7 +78,7 @@ pub async fn update_candidate_position(
 
             match position_form.action {
                 CandidatePositionAction::Remove => {
-                    candidate_lists::remove_candidate_from_list(
+                    CandidateList::remove_candidate_from_list(
                         &store,
                         candidate.list_id,
                         candidate.person.id,
@@ -88,7 +88,7 @@ pub async fn update_candidate_position(
                 CandidatePositionAction::Move => {
                     let mut full_list = full_list;
                     full_list.update_position(candidate.person.id, position_form.position);
-                    candidate_lists::update_candidate_list_order(
+                    CandidateList::update_order(
                         &store,
                         candidate.list_id,
                         &full_list.get_ids(),
@@ -138,14 +138,14 @@ mod tests {
         let list = sample_candidate_list(list_id);
         let person = sample_person(PersonId::new());
 
-        candidate_lists::create_candidate_list(&store, &list).await?;
+        list.create(&store).await?;
         store.update(AppEvent::CreatePerson(person.clone())).await?;
-        candidate_lists::update_candidate_list_order(&store, list_id, &[person.id]).await?;
+        CandidateList::update_order(&store, list_id, &[person.id]).await?;
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
-        let candidate = candidate_lists::get_candidate(&store, list_id, person.id).await?;
+        let candidate = CandidateList::get_candidate(&store, list_id, person.id).await?;
 
         let response = edit_candidate_position(
             EditCandidatePositionPath {
@@ -175,20 +175,20 @@ mod tests {
         let person_a = sample_person_with_last_name(PersonId::new(), "Jansen");
         let person_b = sample_person_with_last_name(PersonId::new(), "Bakker");
 
-        candidate_lists::create_candidate_list(&store, &list).await?;
+        list.create(&store).await?;
         store
             .update(AppEvent::CreatePerson(person_a.clone()))
             .await?;
         store
             .update(AppEvent::CreatePerson(person_b.clone()))
             .await?;
-        candidate_lists::update_candidate_list_order(&store, list_id, &[person_a.id, person_b.id])
+        CandidateList::update_order(&store, list_id, &[person_a.id, person_b.id])
             .await?;
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
-        let candidate = candidate_lists::get_candidate(&store, list_id, person_a.id).await?;
+        let candidate = CandidateList::get_candidate(&store, list_id, person_a.id).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
@@ -210,7 +210,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(full_list.candidates.len(), 2);
@@ -228,20 +228,20 @@ mod tests {
         let person_a = sample_person_with_last_name(PersonId::new(), "Jansen");
         let person_b = sample_person_with_last_name(PersonId::new(), "Bakker");
 
-        candidate_lists::create_candidate_list(&store, &list).await?;
+        list.create(&store).await?;
         store
             .update(AppEvent::CreatePerson(person_a.clone()))
             .await?;
         store
             .update(AppEvent::CreatePerson(person_b.clone()))
             .await?;
-        candidate_lists::update_candidate_list_order(&store, list_id, &[person_a.id, person_b.id])
+        CandidateList::update_order(&store, list_id, &[person_a.id, person_b.id])
             .await?;
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
-        let candidate = candidate_lists::get_candidate(&store, list_id, person_a.id).await?;
+        let candidate = CandidateList::get_candidate(&store, list_id, person_a.id).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
@@ -263,7 +263,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(full_list.candidates.len(), 1);
@@ -280,20 +280,20 @@ mod tests {
         let person_a = sample_person_with_last_name(PersonId::new(), "Jansen");
         let person_b = sample_person_with_last_name(PersonId::new(), "Bakker");
 
-        candidate_lists::create_candidate_list(&store, &list).await?;
+        list.create(&store).await?;
         store
             .update(AppEvent::CreatePerson(person_a.clone()))
             .await?;
         store
             .update(AppEvent::CreatePerson(person_b.clone()))
             .await?;
-        candidate_lists::update_candidate_list_order(&store, list_id, &[person_a.id, person_b.id])
+        CandidateList::update_order(&store, list_id, &[person_a.id, person_b.id])
             .await?;
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
-        let candidate = candidate_lists::get_candidate(&store, list_id, person_a.id).await?;
+        let candidate = CandidateList::get_candidate(&store, list_id, person_a.id).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = TokenValue("invalid".to_string());
@@ -317,7 +317,7 @@ mod tests {
         let body = response_body_string(response).await;
         assert!(body.contains("The CSRF token is invalid."));
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(full_list.candidates.len(), 2);

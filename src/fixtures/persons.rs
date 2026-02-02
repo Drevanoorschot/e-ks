@@ -108,7 +108,7 @@ mod tests {
         let store = AppStore::default();
         load(&store).await.unwrap();
         let persons =
-            crate::persons::list_persons(&store, 50, 0, &PersonSort::LastName, &SortDirection::Asc);
+            crate::persons::Person::list(&store, 50, 0, &PersonSort::LastName, &SortDirection::Asc);
 
         assert_eq!(persons.len(), 50);
     }

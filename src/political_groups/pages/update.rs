@@ -8,7 +8,7 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
-    political_groups::{self, AuthorisedAgent, ListSubmitter, PoliticalGroup, PoliticalGroupForm},
+    political_groups::{AuthorisedAgent, ListSubmitter, PoliticalGroup, PoliticalGroupForm},
 };
 
 use super::PoliticalGroupEditPath;
@@ -28,7 +28,7 @@ pub async fn edit_political_group(
     State(store): State<AppStore>,
 ) -> Result<Response, AppError> {
     let authorised_agents =
-        political_groups::get_authorised_agents(&store, political_group.id).await?;
+        PoliticalGroup::list_authorised_agents(&store, political_group.id)?;
 
     Ok(HtmlTemplate(
         PoliticalGroupUpdateTemplate {
@@ -49,7 +49,7 @@ pub async fn update_political_group(
     Form(form): Form<PoliticalGroupForm>,
 ) -> Result<Response, AppError> {
     let authorised_agents =
-        political_groups::get_authorised_agents(&store, political_group.id).await?;
+        PoliticalGroup::list_authorised_agents(&store, political_group.id)?;
 
     match form.validate_update(&political_group, &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
@@ -62,7 +62,7 @@ pub async fn update_political_group(
         )
         .into_response()),
         Ok(political_group) => {
-            political_groups::update_political_group(&store, &political_group).await?;
+            political_group.update(&store).await?;
 
             Ok(Redirect::to(&PoliticalGroup::edit_path()).into_response())
         }
@@ -77,7 +77,6 @@ mod tests {
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
-    use sqlx::PgPool;
 
     use crate::{
         AppError, AppStore, Context,
@@ -96,8 +95,9 @@ mod tests {
         let agent_id = AuthorisedAgentId::new();
         let authorised_agent = sample_authorised_agent(agent_id);
 
-        political_groups::create_political_group(&store, &political_group).await?;
-        political_groups::create_authorised_agent(&store, political_group.id, &authorised_agent)
+        political_group.create(&store).await?;
+        authorised_agent
+            .create(&store, political_group.id)
             .await?;
 
         let response = edit_political_group(
@@ -127,8 +127,9 @@ mod tests {
         let agent_id = AuthorisedAgentId::new();
         let authorised_agent = sample_authorised_agent(agent_id);
 
-        political_groups::create_political_group(&store, &political_group).await?;
-        political_groups::create_authorised_agent(&store, political_group.id, &authorised_agent)
+        political_group.create(&store).await?;
+        authorised_agent
+            .create(&store, political_group.id)
             .await?;
 
         let context = Context::new_test_without_db();
@@ -155,7 +156,7 @@ mod tests {
         assert_eq!(location, PoliticalGroup::edit_path());
 
         let updated =
-            political_groups::get_single_political_group(&store)?.expect("political group");
+            PoliticalGroup::get_single(&store)?.expect("political group");
         assert_eq!(updated.long_list_allowed, Some(true));
         assert_eq!(updated.display_name_confirmed, Some(true));
         assert_eq!(updated.legal_name_confirmed, Some(true));
@@ -172,8 +173,9 @@ mod tests {
         let agent_id = AuthorisedAgentId::new();
         let authorised_agent = sample_authorised_agent(agent_id);
 
-        political_groups::create_political_group(&store, &political_group).await?;
-        political_groups::create_authorised_agent(&store, political_group.id, &authorised_agent)
+        political_group.create(&store).await?;
+        authorised_agent
+            .create(&store, political_group.id)
             .await?;
 
         let context = Context::new_test_without_db();

@@ -41,7 +41,7 @@ mod tests {
         let id = PersonId::new();
         let person = sample_person(id);
 
-        persons::create_person(&store, &person).await?;
+        person.create(&store).await?;
 
         let response = list_persons(
             PersonsPath {},

@@ -3,7 +3,7 @@ use axum::{extract::State, response::IntoResponse};
 
 use crate::{
     AppError, AppStore, Context, HtmlTemplate,
-    candidate_lists::{self, CandidateList, CandidateListSummary, pages::CandidateListsPath},
+    candidate_lists::{CandidateList, CandidateListSummary, pages::CandidateListsPath},
     filters,
     persons::Person,
 };
@@ -20,7 +20,7 @@ pub async fn list_candidate_lists(
     context: Context,
     State(store): State<AppStore>,
 ) -> Result<impl IntoResponse, AppError> {
-    let candidate_lists = candidate_lists::list_candidate_list_summary(&store)?;
+    let candidate_lists = CandidateList::list_summary(&store)?;
     let total_persons = store.get_person_count();
 
     Ok(HtmlTemplate(
@@ -47,7 +47,7 @@ mod tests {
     async fn list_candidate_lists_shows_created_list() -> Result<(), AppError> {
         let store = AppStore::default();
         let list = sample_candidate_list(CandidateListId::new());
-        candidate_lists::create_candidate_list(&store, &list).await?;
+        list.create(&store).await?;
 
         let response = list_candidate_lists(
             CandidateListsPath {},

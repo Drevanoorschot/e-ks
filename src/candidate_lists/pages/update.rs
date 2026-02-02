@@ -8,7 +8,7 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppStore, Context, ElectionConfig, HtmlTemplate,
     candidate_lists::{
-        self, CandidateList, CandidateListForm, CandidateListSummary, pages::CandidateListsEditPath,
+        CandidateList, CandidateListForm, CandidateListSummary, pages::CandidateListsEditPath,
     },
     filters,
     form::{FormData, Validate},
@@ -30,7 +30,7 @@ pub async fn edit_candidate_list(
     candidate_list: CandidateList,
     State(store): State<AppStore>,
 ) -> Result<Response, AppError> {
-    let candidate_lists = candidate_lists::list_candidate_list_summary(&store)?;
+    let candidate_lists = CandidateList::list_summary(&store)?;
     let total_persons = store.get_person_count() as i64;
 
     Ok(HtmlTemplate(
@@ -55,7 +55,7 @@ pub async fn update_candidate_list(
     State(store): State<AppStore>,
     Form(form): Form<CandidateListForm>,
 ) -> Result<Response, AppError> {
-    let candidate_lists = candidate_lists::list_candidate_list_summary(&store)?;
+    let candidate_lists = CandidateList::list_summary(&store)?;
     let total_persons = store.get_person_count() as i64;
 
     match form.validate_update(&candidate_list, &context.csrf_tokens) {
@@ -71,7 +71,7 @@ pub async fn update_candidate_list(
         .into_response()),
         Ok(candidate_list) => {
             let candidate_list =
-                candidate_lists::update_candidate_list(&store, &candidate_list).await?;
+                candidate_list.update(&store).await?;
             Ok(Redirect::to(&candidate_list.view_path()).into_response())
         }
     }
@@ -95,7 +95,7 @@ mod tests {
         let store = AppStore::default();
         let candidate_list = sample_candidate_list(CandidateListId::new());
 
-        candidate_lists::create_candidate_list(&store, &candidate_list).await?;
+        candidate_list.create(&store).await?;
 
         let response = edit_candidate_list(
             CandidateListsEditPath {
@@ -131,7 +131,7 @@ mod tests {
             updated_at: creation_date,
         };
         let candidate_list =
-            candidate_lists::create_candidate_list(&store, &candidate_list).await?;
+            candidate_list.create(&store).await?;
 
         let form = CandidateListForm {
             electoral_districts: vec![ElectoralDistrict::DR],
@@ -158,7 +158,7 @@ mod tests {
             .expect("location header value");
 
         // verify updated candidate list object in database
-        let lists = candidate_lists::list_candidate_list_summary(&store)?;
+        let lists = CandidateList::list_summary(&store)?;
         assert_eq!(lists.len(), 1);
 
         let updated_list = &lists[0].list;
@@ -189,7 +189,7 @@ mod tests {
             created_at: creation_date,
             updated_at: creation_date,
         };
-        candidate_lists::create_candidate_list(&store, &candidate_list).await?;
+        candidate_list.create(&store).await?;
 
         let form = CandidateListForm {
             electoral_districts: vec![ElectoralDistrict::DR],
@@ -210,7 +210,7 @@ mod tests {
         let body = response_body_string(response).await;
         assert!(body.contains("Edit candidate list"));
 
-        let lists = candidate_lists::list_candidate_list_summary(&store)?;
+        let lists = CandidateList::list_summary(&store)?;
         assert_eq!(lists.len(), 1);
 
         let updated_list = &lists[0].list;

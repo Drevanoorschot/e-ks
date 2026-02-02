@@ -90,7 +90,7 @@ where
     }
 }
 
-pub fn to_info<S>(pagination: Pagination<S>, total_items: u64) -> PaginationInfo<S>
+pub fn to_info<S>(pagination: Pagination<S>, total_items: usize) -> PaginationInfo<S>
 where
     S: Serialize + Copy + PartialEq + Default,
 {
@@ -99,7 +99,7 @@ where
     let total_pages = if total_items == 0 {
         1
     } else {
-        ((total_items - 1) / per_page as u64) as u32 + 1
+        ((total_items - 1) / per_page as usize) as u32 + 1
     };
 
     let page: u32 = pagination.page.min(total_pages).max(1);

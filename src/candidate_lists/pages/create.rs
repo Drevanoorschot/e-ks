@@ -8,7 +8,7 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppStore, Context, ElectionConfig, HtmlTemplate,
     candidate_lists::{
-        self, CandidateList, CandidateListForm, CandidateListSummary, pages::CandidateListNewPath,
+        CandidateList, CandidateListForm, CandidateListSummary, pages::CandidateListNewPath,
     },
     filters,
     form::{FormData, Validate},
@@ -28,9 +28,9 @@ pub async fn new_candidate_list_form(
     context: Context,
     State(store): State<AppStore>,
 ) -> Result<impl IntoResponse, AppError> {
-    let candidate_lists = candidate_lists::list_candidate_list_summary(&store)?;
+    let candidate_lists = CandidateList::list_summary(&store)?;
     let total_persons = store.get_person_count();
-    let used_districts = candidate_lists::get_used_districts(&store, vec![])?;
+    let used_districts = CandidateList::used_districts(&store, vec![])?;
     let available_districts = context.election.available_districts(used_districts);
 
     let form = FormData::new_with_data(
@@ -60,7 +60,7 @@ pub async fn create_candidate_list(
 ) -> Result<Response, AppError> {
     match form.validate_create(&context.csrf_tokens) {
         Err(form_data) => {
-            let candidate_lists = candidate_lists::list_candidate_list_summary(&store)?;
+            let candidate_lists = CandidateList::list_summary(&store)?;
             let total_persons = store.get_person_count();
 
             Ok(HtmlTemplate(
@@ -75,7 +75,7 @@ pub async fn create_candidate_list(
         }
         Ok(candidate_list) => {
             let candidate_list =
-                candidate_lists::create_candidate_list(&store, &candidate_list).await?;
+                candidate_list.create(&store).await?;
             Ok(Redirect::to(&candidate_list.view_path()).into_response())
         }
     }
@@ -142,7 +142,7 @@ mod test {
             .to_str()
             .expect("location header value");
 
-        let lists = candidate_lists::list_candidate_list_summary(&store)?;
+        let lists = CandidateList::list_summary(&store)?;
         assert_eq!(lists.len(), 1);
         assert_eq!(location, lists[0].list.view_path());
 

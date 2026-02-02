@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::{
     AppError, AppStore, Context, HtmlTemplate,
-    candidate_lists::{self, CandidateList, FullCandidateList, pages::AddCandidatePath},
+    candidate_lists::{CandidateList, FullCandidateList, pages::AddCandidatePath},
     filters,
     persons::{Person, PersonId},
 };
@@ -26,7 +26,7 @@ pub async fn add_existing_person(
     full_list: FullCandidateList,
     State(store): State<AppStore>,
 ) -> Result<impl IntoResponse, AppError> {
-    let persons = candidate_lists::list_persons_not_on_candidate_list(&store, full_list.id())?;
+    let persons = CandidateList::persons_not_on_list(&store, full_list.id())?;
 
     Ok(HtmlTemplate(
         AddExistingPersonTemplate { full_list, persons },
@@ -55,7 +55,7 @@ pub async fn add_person_to_candidate_list(
         return Ok(redirect);
     }
 
-    candidate_lists::append_candidate_to_list(&store, full_list.id(), form.person_id).await?;
+    CandidateList::append_candidate(&store, full_list.id(), form.person_id).await?;
 
     Ok(redirect)
 }
@@ -87,10 +87,10 @@ mod tests {
         let list = sample_candidate_list(list_id);
         let person = sample_person(PersonId::new());
 
-        candidate_lists::create_candidate_list(&store, &list).await?;
+        list.create(&store).await?;
         store.update(AppEvent::CreatePerson(person.clone())).await?;
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
 
@@ -118,10 +118,10 @@ mod tests {
         let list = sample_candidate_list(list_id);
         let person = sample_person_with_last_name(PersonId::new(), "Bakker");
 
-        candidate_lists::create_candidate_list(&store, &list).await?;
+        list.create(&store).await?;
         store.update(AppEvent::CreatePerson(person.clone())).await?;
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
 
@@ -144,7 +144,7 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, list.view_path());
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(full_list.candidates.len(), 1);
@@ -162,17 +162,17 @@ mod tests {
         let existing_person = sample_person_with_last_name(PersonId::new(), "Jansen");
         let new_person = sample_person_with_last_name(PersonId::new(), "Bakker");
 
-        candidate_lists::create_candidate_list(&store, &list).await?;
+        list.create(&store).await?;
         store
             .update(AppEvent::CreatePerson(existing_person.clone()))
             .await?;
         store
             .update(AppEvent::CreatePerson(new_person.clone()))
             .await?;
-        candidate_lists::update_candidate_list_order(&store, list_id, &[existing_person.id])
+        CandidateList::update_order(&store, list_id, &[existing_person.id])
             .await?;
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
 
@@ -195,7 +195,7 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, list.view_path());
 
-        let full_list = candidate_lists::get_full_candidate_list(&store, list_id)
+        let full_list = CandidateList::full(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(full_list.candidates.len(), 2);

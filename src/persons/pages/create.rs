@@ -9,7 +9,7 @@ use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     persons::{
-        self, COUNTRY_CODES, Person, PersonForm, PersonPagination, PersonSort,
+        COUNTRY_CODES, Person, PersonForm, PersonPagination, PersonSort,
         pages::PersonsNewPath,
     },
 };
@@ -55,7 +55,7 @@ pub async fn create_person(
         )
         .into_response()),
         Ok(person) => {
-            let person = persons::create_person(&store, &person).await?;
+            let person = person.create(&store).await?;
 
             Ok(Redirect::to(&person.after_create_path()).into_response())
         }
@@ -118,7 +118,7 @@ mod tests {
             .expect("location header value");
         assert!(location.contains("/address"));
 
-        let count = persons::count_persons(&store);
+        let count = store.get_person_count();
         assert_eq!(count, 1);
 
         Ok(())

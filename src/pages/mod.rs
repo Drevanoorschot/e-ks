@@ -39,7 +39,7 @@ mod tests {
 
     #[sqlx::test]
     async fn index_renders_html(pool: sqlx::PgPool) {
-        let body = index(Context::new_test(pool).await).await.into_response();
+        let body = index(Context::new_test().await).await.into_response();
         let body = response_body_string(body).await;
         assert!(body.contains(ElectionConfig::default().title()));
     }
@@ -48,7 +48,7 @@ mod tests {
     async fn not_found_renders_html(pool: sqlx::PgPool) {
         let into_response = not_found(
             OriginalUri("/not_found".parse().unwrap()),
-            Context::new_test(pool).await,
+            Context::new_test().await,
         )
         .await
         .unwrap();
