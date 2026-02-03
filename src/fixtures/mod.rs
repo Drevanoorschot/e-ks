@@ -15,16 +15,8 @@ pub async fn load(pool: &PgPool, store: &AppStore) -> Result<(), AppError> {
     Ok(())
 }
 
-async fn clear_database(db: &PgPool) -> Result<(), AppError> {
-    sqlx::query!(
-        "
-        TRUNCATE TABLE authorised_agents, list_submitters, political_groups,
-        candidate_lists_persons, candidate_lists, persons
-        RESTART IDENTITY CASCADE
-        "
-    )
-    .execute(db)
-    .await?;
+async fn clear_database(_db: &PgPool) -> Result<(), AppError> {
+    // TODO
 
     Ok(())
 }

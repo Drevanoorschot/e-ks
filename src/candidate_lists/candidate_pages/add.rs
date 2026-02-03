@@ -71,11 +71,11 @@ mod tests {
 
     use crate::{
         AppStore, Context,
-        candidate_lists::{self, CandidateListId},
+        candidate_lists::CandidateListId,
         common::store::AppEvent,
         persons::PersonId,
         test_utils::{
-            self, response_body_string, sample_candidate_list, sample_person,
+            response_body_string, sample_candidate_list, sample_person,
             sample_person_with_last_name,
         },
     };
@@ -90,7 +90,7 @@ mod tests {
         list.create(&store).await?;
         store.update(AppEvent::CreatePerson(person.clone())).await?;
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
 
@@ -121,7 +121,7 @@ mod tests {
         list.create(&store).await?;
         store.update(AppEvent::CreatePerson(person.clone())).await?;
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
 
@@ -144,7 +144,7 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, list.view_path());
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(full_list.candidates.len(), 1);
@@ -169,10 +169,9 @@ mod tests {
         store
             .update(AppEvent::CreatePerson(new_person.clone()))
             .await?;
-        CandidateList::update_order(&store, list_id, &[existing_person.id])
-            .await?;
+        CandidateList::update_order(&store, list_id, &[existing_person.id]).await?;
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
 
@@ -195,7 +194,7 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, list.view_path());
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(full_list.candidates.len(), 2);

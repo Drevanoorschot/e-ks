@@ -26,131 +26,86 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
     let political_group = PoliticalGroup {
         id: political_group_id,
         long_list_allowed: None,
-        legal_name: "Kiesraad Demo Partij".to_string(),
-        legal_name_confirmed: None,
-        display_name: "Kiesraad Demo".to_string(),
-        display_name_confirmed: None,
-        authorised_agent_id: None,
-        list_submitter_id: None,
+        legal_name: Some("Kiesraad Demo Partij".to_string()),
+        display_name: Some("Kiesraad Demo".to_string()),
         created_at: Utc::now(),
         updated_at: Utc::now(),
     };
 
-    let political_group = political_group.create(store).await?;
+    let _political_group = political_group.create(store).await?;
 
     AuthorisedAgent {
         id: agent_1_id,
         last_name: "Jansen".to_string(),
         last_name_prefix: Some("de".to_string()),
         initials: "A.B.".to_string(),
-        locality: "Utrecht".to_string(),
-        postal_code: "3511 AA".to_string(),
-        house_number: "10".to_string(),
-        house_number_addition: Some("A".to_string()),
-        street_name: "Oude Gracht".to_string(),
         created_at: Utc::now(),
         updated_at: Utc::now(),
     }
-        .create(store, political_group.id)
-        .await?;
+    .create(store, political_group_id)
+    .await?;
 
     AuthorisedAgent {
         id: agent_2_id,
         last_name: "Visser".to_string(),
         last_name_prefix: None,
         initials: "C.D.".to_string(),
-        locality: "Amersfoort".to_string(),
-        postal_code: "3811 BB".to_string(),
-        house_number: "25".to_string(),
-        house_number_addition: None,
-        street_name: "Langegracht".to_string(),
         created_at: Utc::now(),
         updated_at: Utc::now(),
     }
-        .create(store, political_group.id)
-        .await?;
+    .create(store, political_group_id)
+    .await?;
 
     ListSubmitter {
         id: submitter_1_id,
         last_name: "Bos".to_string(),
         last_name_prefix: None,
         initials: "E.F.".to_string(),
-        locality: "Rotterdam".to_string(),
-        postal_code: "3011 CC".to_string(),
-        house_number: "5".to_string(),
+        locality: Some("Rotterdam".to_string()),
+        postal_code: Some("3011 CC".to_string()),
+        house_number: Some("5".to_string()),
         house_number_addition: Some("B".to_string()),
-        street_name: "Coolsingel".to_string(),
+        street_name: Some("Coolsingel".to_string()),
         created_at: Utc::now(),
         updated_at: Utc::now(),
     }
-        .create(store, political_group.id)
-        .await?;
+    .create(store, political_group_id)
+    .await?;
 
     ListSubmitter {
         id: submitter_2_id,
         last_name: "Smit".to_string(),
         last_name_prefix: Some("van".to_string()),
         initials: "G.H.".to_string(),
-        locality: "Den Haag".to_string(),
-        postal_code: "2511 DD".to_string(),
-        house_number: "18".to_string(),
+        locality: Some("Den Haag".to_string()),
+        postal_code: Some("2511 DD".to_string()),
+        house_number: Some("18".to_string()),
         house_number_addition: None,
-        street_name: "Spui".to_string(),
+        street_name: Some("Spui".to_string()),
         created_at: Utc::now(),
         updated_at: Utc::now(),
     }
-        .create(store, political_group.id)
-        .await?;
+    .create(store, political_group_id)
+    .await?;
 
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use sqlx::{PgConnection, PgPool};
-
     use super::*;
-
-    pub async fn get_political_groups(
-        conn: &mut PgConnection,
-    ) -> Result<Vec<PoliticalGroup>, sqlx::Error> {
-        sqlx::query_as!(
-            PoliticalGroup,
-            r#"
-            SELECT id,
-                long_list_allowed,
-                legal_name,
-                legal_name_confirmed,
-                display_name,
-                display_name_confirmed,
-                authorised_agent_id AS "authorised_agent_id:AuthorisedAgentId",
-                list_submitter_id AS "list_submitter_id:ListSubmitterId",
-                created_at,
-                updated_at
-            FROM political_groups
-            ORDER BY created_at ASC
-            "#,
-        )
-        .fetch_all(conn)
-        .await
-    }
 
     #[tokio::test]
     async fn test_load() {
         let store = AppStore::default();
         load(&store).await.unwrap();
 
-        let groups = vec![
-            PoliticalGroup::get_single(&store)
-                .unwrap()
-                .expect("political group"),
-        ];
-        assert_eq!(groups.len(), 1);
+        let group = store.get_political_group();
 
-        let list_submitters = PoliticalGroup::list_submitters(&store, groups[0].id).unwrap();
+        let list_submitters = PoliticalGroup::list_submitters(&store, group.id).unwrap();
         assert_eq!(list_submitters.len(), 2);
 
-        let authorised_count = PoliticalGroup::list_authorised_agents(&store, groups[0].id)
+        let authorised_count = PoliticalGroup::list_authorised_agents(&store, group.id)
             .unwrap()
             .len();
         assert_eq!(authorised_count, 2);

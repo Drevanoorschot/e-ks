@@ -90,7 +90,7 @@ mod tests {
 
     use crate::{
         AppStore, Context,
-        candidate_lists::{self, CandidateListId},
+        candidate_lists::CandidateListId,
         common::store::AppEvent,
         persons::PersonId,
         test_utils::{
@@ -110,7 +110,7 @@ mod tests {
         store.update(AppEvent::CreatePerson(person.clone())).await?;
         CandidateList::update_order(&store, list_id, &[person.id]).await?;
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         let candidate = CandidateList::get_candidate(&store, list_id, person.id).await?;
@@ -146,7 +146,7 @@ mod tests {
         store.update(AppEvent::CreatePerson(person.clone())).await?;
         CandidateList::update_order(&store, list_id, &[person.id]).await?;
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         let candidate = CandidateList::get_candidate(&store, list_id, person.id).await?;
@@ -200,7 +200,7 @@ mod tests {
         store.update(AppEvent::CreatePerson(person.clone())).await?;
         CandidateList::update_order(&store, list_id, &[person.id]).await?;
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         let candidate = CandidateList::get_candidate(&store, list_id, person.id).await?;

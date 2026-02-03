@@ -59,7 +59,11 @@ impl AppStore {
         let data = self.data.read().unwrap();
 
         let mut lists: Vec<CandidateList> = data.candidate_lists.values().cloned().collect();
-        lists.sort_by(|a, b| a.created_at.cmp(&b.created_at).then_with(|| a.id.cmp(&b.id)));
+        lists.sort_by(|a, b| {
+            a.created_at
+                .cmp(&b.created_at)
+                .then_with(|| a.id.cmp(&b.id))
+        });
         lists
     }
 
@@ -93,46 +97,37 @@ impl AppStore {
         data.persons.len()
     }
 
-    pub fn get_candidate_list(&self, list_id: CandidateListId) -> Result<CandidateList, AppError> {
+    pub fn get_candidate_list(
+        &self,
+        list_id: CandidateListId,
+    ) -> Result<Option<CandidateList>, AppError> {
         let data = self.data.read().unwrap();
 
-        data.candidate_lists
-            .get(&list_id)
-            .cloned()
-            .ok_or_else(|| AppError::GenericNotFound)
+        Ok(data.candidate_lists.get(&list_id).cloned())
     }
 
-    pub fn get_person(&self, person_id: PersonId) -> Result<Person, AppError> {
+    pub fn get_person(&self, person_id: PersonId) -> Result<Option<Person>, AppError> {
         let data = self.data.read().unwrap();
 
-        data.persons
-            .get(&person_id)
-            .cloned()
-            .ok_or_else(|| AppError::GenericNotFound)
+        Ok(data.persons.get(&person_id).cloned())
     }
 
     pub fn get_authorised_agent(
         &self,
         authorised_agent_id: AuthorisedAgentId,
-    ) -> Result<AuthorisedAgent, AppError> {
+    ) -> Result<Option<AuthorisedAgent>, AppError> {
         let data = self.data.read().unwrap();
 
-        data.authorised_agents
-            .get(&authorised_agent_id)
-            .cloned()
-            .ok_or_else(|| AppError::GenericNotFound)
+        Ok(data.authorised_agents.get(&authorised_agent_id).cloned())
     }
 
     pub fn get_list_submitter(
         &self,
         list_submitter_id: ListSubmitterId,
-    ) -> Result<ListSubmitter, AppError> {
+    ) -> Result<Option<ListSubmitter>, AppError> {
         let data = self.data.read().unwrap();
 
-        data.list_submitters
-            .get(&list_submitter_id)
-            .cloned()
-            .ok_or_else(|| AppError::GenericNotFound)
+        Ok(data.list_submitters.get(&list_submitter_id).cloned())
     }
 
     pub async fn update(&self, event: AppEvent) -> Result<(), AppError> {

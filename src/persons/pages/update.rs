@@ -9,8 +9,7 @@ use crate::{
     AppError, AppResponse, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     persons::{
-        COUNTRY_CODES, Person, PersonForm, PersonPagination, PersonSort,
-        pages::EditPersonPath,
+        COUNTRY_CODES, Person, PersonForm, PersonPagination, PersonSort, pages::EditPersonPath,
     },
 };
 
@@ -62,7 +61,7 @@ pub async fn update_person(
         Ok(person) => {
             person.update(&store).await?;
 
-            Ok(Redirect::to(&person.edit_address_path()).into_response())
+            Ok(Redirect::to(&Person::list_path()).into_response())
         }
     }
 }
@@ -78,7 +77,7 @@ mod tests {
 
     use crate::{
         AppError, AppStore, Context,
-        persons::{self, PersonId},
+        persons::PersonId,
         test_utils::{response_body_string, sample_person, sample_person_form},
     };
 
@@ -138,9 +137,9 @@ mod tests {
             .expect("location header")
             .to_str()
             .expect("location header value");
-        assert!(location.ends_with("/address"));
+        assert!(location.ends_with("/persons"));
 
-        let updated = store.get_person(person_id).expect("updated person");
+        let updated = store.get_person(person_id)?.expect("updated person");
         assert_eq!(updated.last_name, "Updated");
 
         Ok(())

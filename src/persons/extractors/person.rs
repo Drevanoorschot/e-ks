@@ -29,14 +29,13 @@ where
         let Path(PersonPathParams { person_id }) =
             Path::<PersonPathParams>::from_request_parts(parts, state).await?;
 
-        let person = store.get_person(person_id).map_err(|err| match err {
-            AppError::NotFound(_) => AppError::NotFound(trans!(
+        let person = store
+            .get_person(person_id)?
+            .ok_or(AppError::NotFound(trans!(
                 "person.not_found",
                 locale,
                 person_id
-            )),
-            _ => err,
-        })?;
+            )))?;
 
         Ok(person)
     }

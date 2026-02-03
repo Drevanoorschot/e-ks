@@ -3,8 +3,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::types::chrono::Utc;
 
 use crate::{
-    AppError, AppStore, id_newtype,
+    AppError, AppStore,
     common::store::AppEvent,
+    id_newtype,
     pagination::SortDirection,
     persons::{Gender, PersonSort},
 };
@@ -14,20 +15,30 @@ id_newtype!(pub struct PersonId);
 #[derive(Default, Debug, Serialize, Deserialize, Clone, sqlx::FromRow)]
 pub struct Person {
     pub id: PersonId,
+
     pub last_name: String,
     pub last_name_prefix: Option<String>,
     pub initials: String,
+
     pub first_name: Option<String>,
+    pub gender: Option<Gender>,
+
     pub bsn: Option<String>,
+    pub date_of_birth: Option<NaiveDate>,
+
     pub place_of_residence: Option<String>,
     pub country_of_residence: Option<String>,
-    pub gender: Option<Gender>,
-    pub date_of_birth: Option<NaiveDate>,
-    pub locality: Option<String>,
-    pub postal_code: Option<String>,
+
+    pub street_name: Option<String>,
     pub house_number: Option<String>,
     pub house_number_addition: Option<String>,
-    pub street_name: Option<String>,
+    pub locality: Option<String>,
+    pub postal_code: Option<String>,
+
+    pub representative_last_name: Option<String>,
+    pub representative_last_name_prefix: Option<String>,
+    pub representative_initials: Option<String>,
+
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -95,8 +106,28 @@ impl Person {
             && self.locality.is_some()
     }
 
+    pub fn is_representative_complete(&self) -> bool {
+        if self.is_dutch() {
+            return true;
+        }
+
+        self.is_address_complete()
+            && !self
+                .representative_initials
+                .as_deref()
+                .unwrap_or("")
+                .is_empty()
+            && !self
+                .representative_last_name
+                .as_deref()
+                .unwrap_or("")
+                .is_empty()
+    }
+
     pub fn is_complete(&self) -> bool {
-        self.is_personal_info_complete() && self.is_address_complete()
+        self.is_personal_info_complete()
+            && self.is_address_complete()
+            && self.is_representative_complete()
     }
 
     pub async fn create(&self, store: &AppStore) -> Result<Person, AppError> {
@@ -113,7 +144,9 @@ impl Person {
     }
 
     pub async fn update(&self, store: &AppStore) -> Result<Person, AppError> {
-        let existing = store.get_person(self.id)?;
+        let existing = store
+            .get_person(self.id)?
+            .ok_or(AppError::GenericNotFound)?;
 
         let updated = Person {
             locality: existing.locality,
@@ -134,7 +167,9 @@ impl Person {
     }
 
     pub async fn update_address(&self, store: &AppStore) -> Result<Person, AppError> {
-        let existing = store.get_person(self.id)?;
+        let existing = store
+            .get_person(self.id)?
+            .ok_or(AppError::GenericNotFound)?;
 
         let updated = Person {
             locality: self.locality.clone(),
@@ -244,13 +279,13 @@ fn gender_rank(gender: &Option<Gender>) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::types::chrono::Utc;
     use crate::{
         AppStore,
         pagination::SortDirection,
         persons::PersonSort,
         test_utils::{sample_person, sample_person_with_last_name},
     };
+    use sqlx::types::chrono::Utc;
 
     fn base_person() -> Person {
         Person {
@@ -269,6 +304,9 @@ mod tests {
             house_number: None,
             house_number_addition: None,
             street_name: None,
+            representative_last_name: None,
+            representative_last_name_prefix: None,
+            representative_initials: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }
@@ -282,7 +320,7 @@ mod tests {
 
         person.create(&store).await?;
 
-        let loaded = store.get_person(id).expect("person");
+        let loaded = store.get_person(id)?.expect("person");
         assert_eq!(loaded.id, id);
         assert_eq!(loaded.last_name, "Jansen");
 
@@ -300,7 +338,7 @@ mod tests {
         person.last_name = "Updated".to_string();
         person.update(&store).await?;
 
-        let updated = store.get_person(id).expect("person");
+        let updated = store.get_person(id)?.expect("person");
         assert_eq!(updated.last_name, "Updated");
 
         Ok(())
@@ -315,8 +353,8 @@ mod tests {
         person.create(&store).await?;
         person.delete(&store).await?;
 
-        let missing = store.get_person(id);
-        assert!(missing.is_err());
+        let missing = store.get_person(id)?;
+        assert!(missing.is_none());
 
         Ok(())
     }
@@ -337,7 +375,7 @@ mod tests {
 
         person.update_address(&store).await?;
 
-        let updated = store.get_person(id).expect("person");
+        let updated = store.get_person(id)?.expect("person");
         assert_eq!(updated.locality, Some("Nieuwegein".to_string()));
         assert_eq!(updated.postal_code, Some("9999 ZZ".to_string()));
         assert_eq!(updated.house_number, Some("99".to_string()));

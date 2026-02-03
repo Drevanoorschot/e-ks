@@ -1,7 +1,5 @@
 use crate::{
-    AppError, AppStore, id_newtype,
-    common::store::AppEvent,
-    political_groups::PoliticalGroupId,
+    AppError, AppStore, common::store::AppEvent, id_newtype, political_groups::PoliticalGroupId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -16,11 +14,11 @@ pub struct ListSubmitter {
     pub last_name_prefix: Option<String>,
     pub initials: String,
 
-    pub locality: String,
-    pub postal_code: String,
-    pub house_number: String,
+    pub locality: Option<String>,
+    pub postal_code: Option<String>,
+    pub house_number: Option<String>,
     pub house_number_addition: Option<String>,
-    pub street_name: String,
+    pub street_name: Option<String>,
 
     #[allow(unused)]
     pub created_at: DateTime<Utc>,
@@ -29,6 +27,13 @@ pub struct ListSubmitter {
 }
 
 impl ListSubmitter {
+    pub fn is_address_complete(&self) -> bool {
+        self.street_name.is_some()
+            && self.house_number.is_some()
+            && self.postal_code.is_some()
+            && self.locality.is_some()
+    }
+
     pub fn last_name_with_prefix(&self) -> String {
         if let Some(prefix) = &self.last_name_prefix {
             format!("{} {}", prefix, self.last_name)
@@ -71,7 +76,9 @@ impl ListSubmitter {
             return Err(AppError::NotFound("Political group not found.".to_string()));
         }
 
-        let existing = store.get_list_submitter(self.id)?;
+        let existing = store
+            .get_list_submitter(self.id)?
+            .ok_or(AppError::GenericNotFound)?;
 
         let updated = ListSubmitter {
             created_at: existing.created_at,
@@ -91,8 +98,7 @@ impl ListSubmitter {
         store: &AppStore,
         political_group_id: PoliticalGroupId,
     ) -> Result<(), AppError> {
-        let Some(mut political_group) =
-            crate::political_groups::PoliticalGroup::get_single(store)?
+        let Some(political_group) = crate::political_groups::PoliticalGroup::get_single(store)?
         else {
             return Err(AppError::NotFound("Political group not found.".to_string()));
         };
@@ -100,17 +106,7 @@ impl ListSubmitter {
             return Err(AppError::NotFound("Political group not found.".to_string()));
         }
 
-        if political_group.list_submitter_id == Some(self.id) {
-            political_group.list_submitter_id = None;
-            political_group.updated_at = Utc::now();
-            store
-                .update(AppEvent::UpdatePoliticalGroup(political_group))
-                .await?;
-        }
-
-        store
-            .update(AppEvent::DeleteListSubmitter(self.id))
-            .await?;
+        store.update(AppEvent::DeleteListSubmitter(self.id)).await?;
 
         Ok(())
     }
@@ -120,21 +116,12 @@ impl ListSubmitter {
         political_group_id: PoliticalGroupId,
         list_submitter_id: ListSubmitterId,
     ) -> Result<(), AppError> {
-        let Some(mut political_group) =
-            crate::political_groups::PoliticalGroup::get_single(store)?
+        let Some(political_group) = crate::political_groups::PoliticalGroup::get_single(store)?
         else {
             return Err(AppError::NotFound("Political group not found.".to_string()));
         };
         if political_group.id != political_group_id {
             return Err(AppError::NotFound("Political group not found.".to_string()));
-        }
-
-        if political_group.list_submitter_id == Some(list_submitter_id) {
-            political_group.list_submitter_id = None;
-            political_group.updated_at = Utc::now();
-            store
-                .update(AppEvent::UpdatePoliticalGroup(political_group))
-                .await?;
         }
 
         store

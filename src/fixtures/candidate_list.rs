@@ -48,6 +48,7 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::candidate_lists::CandidateListSummary;
 
     #[tokio::test]
     async fn test_load() {
@@ -55,7 +56,7 @@ mod tests {
         crate::fixtures::persons::load(&store).await.unwrap();
         load(&store).await.unwrap();
 
-        let lists = CandidateList::list_summary(&store).unwrap();
+        let lists = CandidateListSummary::get(&store).unwrap();
 
         assert_eq!(lists.len(), 1);
         assert_eq!(lists[0].person_count, FIXTURE_CANDIDATE_LIST_SIZE);

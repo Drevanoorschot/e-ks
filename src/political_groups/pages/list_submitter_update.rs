@@ -8,9 +8,7 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
-    political_groups::{
-        ListSubmitter, ListSubmitterForm, PoliticalGroup, PreferredSubmitterForm,
-    },
+    political_groups::{AuthorisedAgent, ListSubmitter, ListSubmitterForm, PoliticalGroup},
 };
 
 use super::ListSubmitterEditPath;
@@ -20,8 +18,7 @@ use super::ListSubmitterEditPath;
 struct ListSubmitterUpdateTemplate {
     list_submitters: Vec<ListSubmitter>,
     list_submitter: ListSubmitter,
-    form: FormData<PreferredSubmitterForm>,
-    overlay_form: FormData<ListSubmitterForm>,
+    form: FormData<ListSubmitterForm>,
 }
 
 pub async fn edit_list_submitter(
@@ -36,11 +33,7 @@ pub async fn edit_list_submitter(
 
     Ok(HtmlTemplate(
         ListSubmitterUpdateTemplate {
-            form: FormData::new_with_data(political_group.clone().into(), &context.csrf_tokens),
-            overlay_form: FormData::new_with_data(
-                list_submitter.clone().into(),
-                &context.csrf_tokens,
-            ),
+            form: FormData::new_with_data(list_submitter.clone().into(), &context.csrf_tokens),
             list_submitter,
             list_submitters,
         },
@@ -63,18 +56,15 @@ pub async fn update_list_submitter(
     match form.validate_update(&list_submitter, &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
             ListSubmitterUpdateTemplate {
-                form: FormData::new_with_data(political_group.clone().into(), &context.csrf_tokens),
                 list_submitter,
-                overlay_form: form_data,
+                form: form_data,
                 list_submitters,
             },
             context,
         )
         .into_response()),
         Ok(list_submitter) => {
-            list_submitter
-                .update(&store, political_group.id)
-                .await?;
+            list_submitter.update(&store, political_group.id).await?;
 
             Ok(Redirect::to(&ListSubmitter::list_path()).into_response())
         }
@@ -92,7 +82,7 @@ mod tests {
 
     use crate::{
         AppError, AppStore, Context,
-        political_groups::{self, ListSubmitter, ListSubmitterId, PoliticalGroupId},
+        political_groups::{ListSubmitter, ListSubmitterId, PoliticalGroupId},
         test_utils::{
             response_body_string, sample_list_submitter, sample_list_submitter_form,
             sample_political_group,
@@ -108,9 +98,7 @@ mod tests {
         let list_submitter = sample_list_submitter(submitter_id);
 
         political_group.create(&store).await?;
-        list_submitter
-            .create(&store, political_group.id)
-            .await?;
+        list_submitter.create(&store, political_group.id).await?;
 
         let response = edit_list_submitter(
             ListSubmitterEditPath { submitter_id },
@@ -138,9 +126,7 @@ mod tests {
         let list_submitter = sample_list_submitter(submitter_id);
 
         political_group.create(&store).await?;
-        list_submitter
-            .create(&store, political_group.id)
-            .await?;
+        list_submitter.create(&store, political_group.id).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
@@ -181,9 +167,7 @@ mod tests {
         let list_submitter = sample_list_submitter(submitter_id);
 
         political_group.create(&store).await?;
-        list_submitter
-            .create(&store, political_group.id)
-            .await?;
+        list_submitter.create(&store, political_group.id).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;

@@ -4,10 +4,10 @@ use http_body_util::BodyExt;
 use crate::{
     ElectoralDistrict, TokenValue,
     candidate_lists::{CandidateList, CandidateListId},
-    persons::{AddressForm, Gender, Person, PersonForm, PersonId},
+    persons::{AddressForm, Gender, Person, PersonForm, PersonId, RepresentativeForm},
     political_groups::{
-        AuthorisedAgent, AuthorisedAgentId, ListSubmitter, ListSubmitterForm, ListSubmitterId,
-        PoliticalGroup, PoliticalGroupForm, PoliticalGroupId,
+        AuthorisedAgent, AuthorisedAgentForm, AuthorisedAgentId, ListSubmitter, ListSubmitterForm,
+        ListSubmitterId, PoliticalGroup, PoliticalGroupForm, PoliticalGroupId,
     },
 };
 
@@ -19,6 +19,14 @@ pub async fn response_body_string(response: axum::response::Response) -> String 
         .expect("collect body")
         .to_bytes();
     String::from_utf8(bytes.to_vec()).expect("utf-8 body")
+}
+
+pub fn extract_csrf_token(body: &str) -> Option<TokenValue> {
+    let marker = "name=\"csrf_token\" value=\"";
+    body.split(marker)
+        .nth(1)
+        .and_then(|rest| rest.split('"').next())
+        .map(|token| TokenValue(token.to_string()))
 }
 
 pub fn sample_candidate_list(id: CandidateListId) -> CandidateList {
@@ -48,6 +56,9 @@ pub fn sample_person(id: PersonId) -> Person {
         house_number: Some("10".to_string()),
         house_number_addition: Some("A".to_string()),
         street_name: Some("Stationsstraat".to_string()),
+        representative_initials: None,
+        representative_last_name: None,
+        representative_last_name_prefix: None,
         created_at: Utc::now(),
         updated_at: Utc::now(),
     }
@@ -88,16 +99,26 @@ pub fn sample_address_form(csrf_token: &TokenValue) -> AddressForm {
     }
 }
 
+pub fn sample_representative_form(csrf_token: &TokenValue) -> RepresentativeForm {
+    RepresentativeForm {
+        representative_last_name: "Bakker".to_string(),
+        representative_last_name_prefix: "".to_string(),
+        representative_initials: "A.B.".to_string(),
+        locality: "Juinen".to_string(),
+        postal_code: "1234 AB".to_string(),
+        house_number: "10".to_string(),
+        house_number_addition: "A".to_string(),
+        street_name: "Stationsstraat".to_string(),
+        csrf_token: csrf_token.clone(),
+    }
+}
+
 pub fn sample_political_group(id: PoliticalGroupId) -> PoliticalGroup {
     PoliticalGroup {
         id,
         long_list_allowed: Some(false),
-        legal_name: "Kiesraad Demo Partij".to_string(),
-        legal_name_confirmed: Some(true),
-        display_name: "Kiesraad Demo".to_string(),
-        display_name_confirmed: Some(true),
-        authorised_agent_id: None,
-        list_submitter_id: None,
+        legal_name: Some("Kiesraad Demo Partij".to_string()),
+        display_name: Some("Kiesraad Demo".to_string()),
         created_at: Utc::now(),
         updated_at: Utc::now(),
     }
@@ -109,13 +130,17 @@ pub fn sample_authorised_agent(id: AuthorisedAgentId) -> AuthorisedAgent {
         last_name: "Jansen".to_string(),
         last_name_prefix: Some("de".to_string()),
         initials: "A.B.".to_string(),
-        locality: "Utrecht".to_string(),
-        postal_code: "3511 AA".to_string(),
-        house_number: "10".to_string(),
-        house_number_addition: Some("A".to_string()),
-        street_name: "Oude Gracht".to_string(),
         created_at: Utc::now(),
         updated_at: Utc::now(),
+    }
+}
+
+pub fn sample_authorised_agent_form(csrf_token: &TokenValue) -> AuthorisedAgentForm {
+    AuthorisedAgentForm {
+        last_name: "Jansen".to_string(),
+        last_name_prefix: "de".to_string(),
+        initials: "A.B.".to_string(),
+        csrf_token: csrf_token.clone(),
     }
 }
 
@@ -125,11 +150,11 @@ pub fn sample_list_submitter(id: ListSubmitterId) -> ListSubmitter {
         last_name: "Bos".to_string(),
         last_name_prefix: None,
         initials: "E.F.".to_string(),
-        locality: "Rotterdam".to_string(),
-        postal_code: "3011 CC".to_string(),
-        house_number: "5".to_string(),
+        locality: Some("Rotterdam".to_string()),
+        postal_code: Some("3011 CC".to_string()),
+        house_number: Some("5".to_string()),
         house_number_addition: Some("B".to_string()),
-        street_name: "Coolsingel".to_string(),
+        street_name: Some("Coolsingel".to_string()),
         created_at: Utc::now(),
         updated_at: Utc::now(),
     }
@@ -149,17 +174,11 @@ pub fn sample_list_submitter_form(csrf_token: &TokenValue) -> ListSubmitterForm 
     }
 }
 
-pub fn sample_political_group_form(
-    csrf_token: &TokenValue,
-    authorised_agent_id: Option<AuthorisedAgentId>,
-) -> PoliticalGroupForm {
+pub fn sample_political_group_form(csrf_token: &TokenValue) -> PoliticalGroupForm {
     PoliticalGroupForm {
         long_list_allowed: "true".to_string(),
-        legal_name_confirmed: "true".to_string(),
-        display_name_confirmed: "true".to_string(),
-        authorised_agent_id: authorised_agent_id
-            .map(|id| id.to_string())
-            .unwrap_or_default(),
+        legal_name: "Updated Legal Name".to_string(),
+        display_name: "Updated Display Name".to_string(),
         csrf_token: csrf_token.clone(),
     }
 }

@@ -138,7 +138,6 @@ mod tests {
         },
         response::IntoResponse,
     };
-    use sqlx::PgPool;
 
     #[test]
     fn displays_not_found_message() {
@@ -181,8 +180,8 @@ mod tests {
             .unwrap()
     }
 
-    #[sqlx::test]
-    async fn app_error_variants_convert_to_error_response(pool: PgPool) {
+    #[tokio::test]
+    async fn app_error_variants_convert_to_error_response() {
         let form_rejection: FormRejection = InvalidFormContentType::default().into();
         let json_rejection: JsonRejection = MissingJsonContentType::default().into();
         let multipart_rejection = Multipart::from_request(get_multipart_rejection_request(), &())

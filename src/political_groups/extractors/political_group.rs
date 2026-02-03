@@ -1,9 +1,6 @@
 use axum::extract::{FromRef, FromRequestParts};
 
-use crate::{
-    AppError, AppStore,
-    political_groups::PoliticalGroup,
-};
+use crate::{AppError, AppStore, political_groups::PoliticalGroup};
 
 impl<S> FromRequestParts<S> for PoliticalGroup
 where

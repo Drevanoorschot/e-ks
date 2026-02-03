@@ -30,7 +30,7 @@ pub async fn edit_candidate_list(
     candidate_list: CandidateList,
     State(store): State<AppStore>,
 ) -> Result<Response, AppError> {
-    let candidate_lists = CandidateList::list_summary(&store)?;
+    let candidate_lists = CandidateListSummary::get(&store)?;
     let total_persons = store.get_person_count() as i64;
 
     Ok(HtmlTemplate(
@@ -55,7 +55,7 @@ pub async fn update_candidate_list(
     State(store): State<AppStore>,
     Form(form): Form<CandidateListForm>,
 ) -> Result<Response, AppError> {
-    let candidate_lists = CandidateList::list_summary(&store)?;
+    let candidate_lists = CandidateListSummary::get(&store)?;
     let total_persons = store.get_person_count() as i64;
 
     match form.validate_update(&candidate_list, &context.csrf_tokens) {
@@ -70,8 +70,7 @@ pub async fn update_candidate_list(
         )
         .into_response()),
         Ok(candidate_list) => {
-            let candidate_list =
-                candidate_list.update(&store).await?;
+            let candidate_list = candidate_list.update(&store).await?;
             Ok(Redirect::to(&candidate_list.view_path()).into_response())
         }
     }
@@ -86,7 +85,7 @@ mod tests {
 
     use crate::{
         AppStore, Context, ElectoralDistrict, TokenValue,
-        candidate_lists::{self, CandidateListId},
+        candidate_lists::CandidateListId,
         test_utils::{response_body_string, sample_candidate_list},
     };
 
@@ -130,8 +129,7 @@ mod tests {
             created_at: creation_date,
             updated_at: creation_date,
         };
-        let candidate_list =
-            candidate_list.create(&store).await?;
+        let candidate_list = candidate_list.create(&store).await?;
 
         let form = CandidateListForm {
             electoral_districts: vec![ElectoralDistrict::DR],
@@ -158,7 +156,7 @@ mod tests {
             .expect("location header value");
 
         // verify updated candidate list object in database
-        let lists = CandidateList::list_summary(&store)?;
+        let lists = CandidateListSummary::get(&store)?;
         assert_eq!(lists.len(), 1);
 
         let updated_list = &lists[0].list;
@@ -210,7 +208,7 @@ mod tests {
         let body = response_body_string(response).await;
         assert!(body.contains("Edit candidate list"));
 
-        let lists = CandidateList::list_summary(&store)?;
+        let lists = CandidateListSummary::get(&store)?;
         assert_eq!(lists.len(), 1);
 
         let updated_list = &lists[0].list;

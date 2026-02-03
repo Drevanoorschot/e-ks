@@ -9,17 +9,14 @@ use super::ListSubmitterNewPath;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
-    political_groups::{
-        ListSubmitter, ListSubmitterForm, PoliticalGroup, PreferredSubmitterForm,
-    },
+    political_groups::{AuthorisedAgent, ListSubmitter, ListSubmitterForm, PoliticalGroup},
 };
 
 #[derive(Template)]
 #[template(path = "political_groups/list_submitter_create.html")]
 struct ListSubmitterCreateTemplate {
     list_submitters: Vec<ListSubmitter>,
-    form: FormData<PreferredSubmitterForm>,
-    overlay_form: FormData<ListSubmitterForm>,
+    form: FormData<ListSubmitterForm>,
 }
 
 pub async fn new_list_submitter_form(
@@ -33,8 +30,7 @@ pub async fn new_list_submitter_form(
     Ok(HtmlTemplate(
         ListSubmitterCreateTemplate {
             list_submitters,
-            overlay_form: FormData::new(&context.csrf_tokens),
-            form: FormData::new_with_data(political_group.clone().into(), &context.csrf_tokens),
+            form: FormData::new(&context.csrf_tokens),
         },
         context,
     ))
@@ -53,16 +49,13 @@ pub async fn create_list_submitter(
         Err(form_data) => Ok(HtmlTemplate(
             ListSubmitterCreateTemplate {
                 list_submitters,
-                form: FormData::new_with_data(political_group.clone().into(), &context.csrf_tokens),
-                overlay_form: form_data,
+                form: form_data,
             },
             context,
         )
         .into_response()),
         Ok(list_submitter) => {
-            list_submitter
-                .create(&store, political_group.id)
-                .await?;
+            list_submitter.create(&store, political_group.id).await?;
             // TODO: set success flash message
             Ok(Redirect::to(&ListSubmitter::list_path()).into_response())
         }
@@ -80,7 +73,7 @@ mod tests {
 
     use crate::{
         AppError, AppStore, Context,
-        political_groups::{self, ListSubmitter, PoliticalGroupId},
+        political_groups::{ListSubmitter, PoliticalGroupId},
         test_utils::{response_body_string, sample_list_submitter_form, sample_political_group},
     };
 
@@ -88,7 +81,7 @@ mod tests {
     async fn new_list_submitter_form_renders_csrf_field() {
         let store = AppStore::default();
         let context = Context::new_test_without_db();
-        let group_id = PoliticalGroupId::new();
+        let group_id = store.get_political_group().id;
 
         let response = new_list_submitter_form(
             ListSubmitterNewPath {},

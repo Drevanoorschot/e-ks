@@ -55,7 +55,7 @@ mod tests {
 
     use crate::{
         AppState, Locale,
-        candidate_lists::{self, CandidateListId},
+        candidate_lists::CandidateListId,
         common::store::AppEvent,
         persons::PersonId,
         render_error_pages,

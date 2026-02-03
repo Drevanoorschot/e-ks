@@ -2,14 +2,26 @@
 
 {% block overlay_title %}{{ "political_group.edit_list_submitter"|trans }}{% endblock %}
 
-{% block overlay_start %}<form method="post" action="{{ list_submitter.edit_path() }}" class="overlay">{% endblock %}
+{% block overlay_start %}
+<form method="post" action="{{ list_submitter.edit_path() }}" class="overlay">
+<input type="hidden" name="csrf_token" value="{{ form.data.csrf_token }}" />
+{% endblock %}
 
 {% block overlay_content %}
-{% let form = overlay_form %}
-  <div class="overlay-content">
+  <div class="overlay-content steps">
+    <div class="steps-nav">
+      <ul>
+        <li>
+          <a href="{{ list_submitter.edit_path() }}">
+            {{ "political_group.edit_list_submitter"|trans }}
+          </a>
+        </li>
+      </ul>
+    </div>
     <div class="form">
       <fieldset>
-        {% include "political_groups/components/list_submitter_form.html" %}
+        {% include "components/person_name_fields.html" %}
+        {% include "components/address_fields.html" %}
       </fieldset>
       <button class="button tertiary-destructive icon-trash open-modal mt-xl" type="button">
         {{ "political_group.actions.delete_list_submitter"|trans }}

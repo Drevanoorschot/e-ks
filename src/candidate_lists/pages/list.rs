@@ -20,7 +20,7 @@ pub async fn list_candidate_lists(
     context: Context,
     State(store): State<AppStore>,
 ) -> Result<impl IntoResponse, AppError> {
-    let candidate_lists = CandidateList::list_summary(&store)?;
+    let candidate_lists = CandidateListSummary::get(&store)?;
     let total_persons = store.get_person_count();
 
     Ok(HtmlTemplate(
@@ -39,7 +39,7 @@ mod tests {
 
     use crate::{
         AppStore, Context,
-        candidate_lists::{self, CandidateListId},
+        candidate_lists::CandidateListId,
         test_utils::{response_body_string, sample_candidate_list},
     };
 

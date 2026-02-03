@@ -31,7 +31,7 @@ mod tests {
     use crate::{
         AppError, AppStore, Context,
         pagination::Pagination,
-        persons::{self, PersonId},
+        persons::PersonId,
         test_utils::{response_body_string, sample_person},
     };
 

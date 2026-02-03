@@ -6,9 +6,7 @@ use axum_extra::extract::Form;
 
 use crate::{
     AppError, AppStore, Context,
-    candidate_lists::{
-        Candidate, CandidateList, candidate_pages::CandidateListDeletePersonPath,
-    },
+    candidate_lists::{Candidate, CandidateList, candidate_pages::CandidateListDeletePersonPath},
     common::store::AppEvent,
     form::{EmptyForm, Validate},
 };
@@ -45,7 +43,7 @@ mod tests {
 
     use crate::{
         AppStore,
-        candidate_lists::{self, CandidateListId},
+        candidate_lists::{CandidateListId, FullCandidateList},
         common::store::AppEvent,
         persons::PersonId,
         test_utils::{sample_candidate_list, sample_person, sample_person_with_last_name},
@@ -64,12 +62,7 @@ mod tests {
         store
             .update(AppEvent::CreatePerson(other_person.clone()))
             .await?;
-        CandidateList::update_order(
-            &store,
-            list_id,
-            &[person.id, other_person.id],
-        )
-        .await?;
+        CandidateList::update_order(&store, list_id, &[person.id, other_person.id]).await?;
         let candidate = CandidateList::get_candidate(&store, list_id, person.id).await?;
 
         let context = Context::new_test_without_db();
@@ -97,14 +90,14 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, list.view_path());
 
-        let updated_list = CandidateList::full(&store, list_id)
+        let updated_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(updated_list.candidates.len(), 1);
         assert_eq!(updated_list.candidates[0].person.id, other_person.id);
 
-        let removed = store.get_person(person.id);
-        assert!(removed.is_err());
+        let removed = store.get_person(person.id)?;
+        assert!(removed.is_none());
 
         Ok(())
     }

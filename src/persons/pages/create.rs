@@ -9,8 +9,7 @@ use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     persons::{
-        COUNTRY_CODES, Person, PersonForm, PersonPagination, PersonSort,
-        pages::PersonsNewPath,
+        COUNTRY_CODES, Person, PersonForm, PersonPagination, PersonSort, pages::PersonsNewPath,
     },
 };
 
@@ -72,7 +71,7 @@ mod tests {
     use axum_extra::extract::Form;
 
     use crate::{
-        AppError, AppStore, Context, persons,
+        AppError, AppStore, Context,
         test_utils::{response_body_string, sample_person_form},
     };
 

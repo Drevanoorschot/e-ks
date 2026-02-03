@@ -37,15 +37,15 @@ mod tests {
 
     use crate::test_utils::response_body_string;
 
-    #[sqlx::test]
-    async fn index_renders_html(pool: sqlx::PgPool) {
+    #[tokio::test]
+    async fn index_renders_html() {
         let body = index(Context::new_test().await).await.into_response();
         let body = response_body_string(body).await;
         assert!(body.contains(ElectionConfig::default().title()));
     }
 
-    #[sqlx::test]
-    async fn not_found_renders_html(pool: sqlx::PgPool) {
+    #[tokio::test]
+    async fn not_found_renders_html() {
         let into_response = not_found(
             OriginalUri("/not_found".parse().unwrap()),
             Context::new_test().await,

@@ -1,11 +1,7 @@
 use axum::extract::{FromRef, FromRequestParts, Path};
 use sqlx::PgPool;
 
-use crate::{
-    AppError, AppStore, Context, CsrfTokens,
-    candidate_lists::{CandidateList, FullCandidateList},
-    trans,
-};
+use crate::{AppError, AppStore, Context, CsrfTokens, candidate_lists::FullCandidateList, trans};
 
 use super::CandidateListPathParams;
 
@@ -27,13 +23,14 @@ where
         let Path(CandidateListPathParams { list_id }) =
             Path::<CandidateListPathParams>::from_request_parts(parts, state).await?;
 
-        let full_list = CandidateList::full(&store, list_id)
-            .await?
-            .ok_or(AppError::NotFound(trans!(
-                "candidate_list.not_found",
-                context.locale,
-                list_id
-            )))?;
+        let full_list =
+            FullCandidateList::get(&store, list_id)
+                .await?
+                .ok_or(AppError::NotFound(trans!(
+                    "candidate_list.not_found",
+                    context.locale,
+                    list_id
+                )))?;
 
         Ok(full_list)
     }
@@ -54,7 +51,7 @@ mod tests {
 
     use crate::{
         AppState, Locale,
-        candidate_lists::{self, CandidateListId},
+        candidate_lists::{CandidateList, CandidateListId},
         common::store::AppEvent,
         persons::PersonId,
         render_error_pages,
@@ -78,6 +75,7 @@ mod tests {
             .update(AppEvent::CreatePerson(person.clone()))
             .await
             .unwrap();
+
         CandidateList::update_order(&app_state.store, list_id, &[person.id])
             .await
             .unwrap();
@@ -142,6 +140,9 @@ mod tests {
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
         let body = response_body_string(response).await;
         let expected = trans!("candidate_list.not_found", Locale::En, list_id);
+
+        dbg!(&body);
+
         assert!(body.contains(&expected));
     }
 }

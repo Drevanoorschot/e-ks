@@ -64,8 +64,7 @@ pub async fn create_person_candidate_list(
 
             CandidateList::append_candidate(&store, full_list.id(), person.id).await?;
 
-            let candidate =
-                CandidateList::get_candidate(&store, full_list.id(), person.id).await?;
+            let candidate = CandidateList::get_candidate(&store, full_list.id(), person.id).await?;
 
             Ok(Redirect::to(&candidate.after_create_path()).into_response())
         }
@@ -83,7 +82,7 @@ mod tests {
 
     use crate::{
         AppStore, Context,
-        candidate_lists::{self, CandidateListId},
+        candidate_lists::CandidateListId,
         test_utils::{response_body_string, sample_candidate_list, sample_person_form},
     };
 
@@ -94,7 +93,7 @@ mod tests {
         let list = sample_candidate_list(list_id);
         list.create(&store).await?;
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
 
@@ -125,7 +124,7 @@ mod tests {
         let csrf_token = context.csrf_tokens.issue().value;
         let form = sample_person_form(&csrf_token);
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
 
@@ -146,7 +145,7 @@ mod tests {
             .to_str()
             .expect("location header value");
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(full_list.candidates.len(), 1);
@@ -168,7 +167,7 @@ mod tests {
         let mut form = sample_person_form(&csrf_token);
         form.last_name = " ".to_string();
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
 

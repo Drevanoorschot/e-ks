@@ -1,27 +1,5 @@
 <input type="hidden" name="csrf_token" value="{{ form.data.csrf_token }}">
-<div class="form-row">
-  <p class="form-field form-field-sm {% if form.data.initials.is_empty() && should_warn %}warning{% endif %}">
-    <label for="initials" class="required">{{ "person.fields.initials"|trans }}</label>
-    <input type="text" name="initials" id="initials" value="{{ form.data.initials }}" required />
-    {% for error in form|error("initials") %}
-    <span class="error">{{ error }}</span>
-    {% endfor %}
-  </p>
-  <p class="form-field form-field-sm">
-    <label for="last_name_prefix">{{ "person.fields.last_name_prefix"|trans }}</label>
-    <input type="text" name="last_name_prefix" id="last_name_prefix" value="{{ form.data.last_name_prefix }}" />
-    {% for error in form|error("last_name_prefix") %}
-    <span class="error">{{ error }}</span>
-    {% endfor %}
-  </p>
-  <p class="form-field {% if form.data.last_name.is_empty() && should_warn %}warning{% endif %}">
-    <label for="last_name" class="required">{{ "person.fields.last_name"|trans }}</label>
-    <input type="text" name="last_name" id="last_name" value="{{ form.data.last_name }}" required />
-    {% for error in form|error("last_name") %}
-    <span class="error">{{ error }}</span>
-    {% endfor %}
-  </p>
-</div>
+{% include "components/person_name_fields.html" %}
 <div class="form-row">
   <p class="form-field">
     <label for="first_name">{{ "person.fields.first_name"|trans }}</label>
@@ -49,7 +27,7 @@
 <div class="form-row">
   <p class="form-field form-field-sm {% if form.data.date_of_birth.is_empty() && should_warn %}warning{% endif %}">
     <label for="date_of_birth">{{ "person.fields.date_of_birth"|trans }}</label>
-    <input type="text" name="date_of_birth" id="date_of_birth" value="{{ form.data.date_of_birth }}"
+    <input type="text" placeholder=" " name="date_of_birth" id="date_of_birth" value="{{ form.data.date_of_birth }}"
       placeholder="dd-mm-jjjj" inputmode="numeric" />
     {% for error in form|error("date_of_birth") %}
     <span class="error">{{ error }}</span>
@@ -58,7 +36,7 @@
   <div class="form-field {% if form.data.bsn.is_empty() && should_warn %}warning{% endif %}">
     <label for="bsn">{{ "person.fields.bsn"|trans }}</label>
     <div class="obfuscate">
-      <input type="text" name="bsn" id="bsn" value="{{ form.data.bsn }}" />
+      <input type="text" placeholder=" " name="bsn" id="bsn" value="{{ form.data.bsn }}" />
     </div>
     {% for error in form|error("bsn") %}
     <span class="error">{{ error }}</span>
@@ -68,7 +46,7 @@
 <div class="form-row">
   <p class="form-field {% if form.data.place_of_residence.is_empty() && should_warn %}warning{% endif %}">
     <label for="locality">{{ "person.fields.place_of_residence"|trans }}</label>
-    <input type="text" name="place_of_residence" id="locality" value="{{ form.data.place_of_residence }}"
+    <input type="text" placeholder=" " name="place_of_residence" id="locality" value="{{ form.data.place_of_residence }}"
       list="locality-suggestions" />
     <datalist id="locality-suggestions"></datalist>
     {% for error in form|error("place_of_residence") %}
@@ -79,7 +57,7 @@
     <label for="country_of_residence" class="required">{{ "person.fields.country_of_residence"|trans }}</label>
     <span class="country_input input-icon">
       <span class="icon">🌐</span>
-      <input type="text" name="country_of_residence" id="country_of_residence"
+      <input type="text" placeholder=" " name="country_of_residence" id="country_of_residence"
         value="{{ form.data.country_of_residence }}" minlength="2" maxlength="2" list="countries" required />
       <datalist id="countries">
         {% for country in countries %}

@@ -1,26 +1,18 @@
 use crate::{
-    AppError, AppStore, id_newtype,
-    common::store::AppEvent,
-    political_groups::PoliticalGroupId,
+    AppError, AppStore, common::store::AppEvent, id_newtype, political_groups::PoliticalGroupId,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 id_newtype!(pub struct AuthorisedAgentId);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct AuthorisedAgent {
     pub id: AuthorisedAgentId,
 
     pub last_name: String,
     pub last_name_prefix: Option<String>,
     pub initials: String,
-
-    pub locality: String,
-    pub postal_code: String,
-    pub house_number: String,
-    pub house_number_addition: Option<String>,
-    pub street_name: String,
 
     #[allow(unused)]
     pub created_at: DateTime<Utc>,
@@ -71,7 +63,9 @@ impl AuthorisedAgent {
             return Err(AppError::NotFound("Political group not found.".to_string()));
         }
 
-        let existing = store.get_authorised_agent(self.id)?;
+        let existing = store
+            .get_authorised_agent(self.id)?
+            .ok_or(AppError::GenericNotFound)?;
         let updated = AuthorisedAgent {
             created_at: existing.created_at,
             updated_at: Utc::now(),

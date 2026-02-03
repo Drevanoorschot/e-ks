@@ -5,9 +5,10 @@ use serde::{Deserialize, Serialize};
 use sqlx::types::chrono::Utc;
 
 use crate::{
-    AppError, AppStore, ElectionConfig, ElectoralDistrict, id_newtype,
+    AppError, AppStore, ElectionConfig, ElectoralDistrict,
     candidate_lists::{Candidate, FullCandidateList},
     common::store::AppEvent,
+    id_newtype,
     persons::{Person, PersonId},
 };
 
@@ -20,13 +21,6 @@ pub struct CandidateList {
     pub candidates: Vec<PersonId>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CandidateListSummary {
-    pub list: CandidateList,
-    pub person_count: usize,
-    pub duplicate_districts: Vec<ElectoralDistrict>,
 }
 
 impl CandidateList {
@@ -42,47 +36,11 @@ impl CandidateList {
         self.electoral_districts.len() == election.electoral_districts().len()
     }
 
-    pub fn list_summary(store: &AppStore) -> Result<Vec<CandidateListSummary>, AppError> {
-        let lists = store.get_candidate_lists();
-
-        let mut district_count = BTreeMap::<ElectoralDistrict, usize>::new();
-        for list in &lists {
-            for district in &list.electoral_districts {
-                district_count
-                    .entry(*district)
-                    .and_modify(|c| *c += 1)
-                    .or_insert(1);
-            }
-        }
-
-        let summaries = lists
-            .into_iter()
-            .map(|list| {
-                let person_count = list.candidates.len();
-                let duplicate_districts = list
-                    .electoral_districts
-                    .iter()
-                    .filter(|district| *district_count.entry(**district).or_default() > 1)
-                    .cloned()
-                    .collect();
-
-                CandidateListSummary {
-                    list,
-                    person_count,
-                    duplicate_districts,
-                }
-            })
-            .collect();
-
-        Ok(summaries)
-    }
-
-    pub fn get(store: &AppStore, list_id: CandidateListId) -> Result<Option<CandidateList>, AppError> {
-        match store.get_candidate_list(list_id) {
-            Ok(list) => Ok(Some(list)),
-            Err(AppError::NotFound(_)) => Ok(None),
-            Err(err) => Err(err),
-        }
+    pub fn get(
+        store: &AppStore,
+        list_id: CandidateListId,
+    ) -> Result<Option<CandidateList>, AppError> {
+        store.get_candidate_list(list_id)
     }
 
     pub fn used_districts(
@@ -105,26 +63,12 @@ impl CandidateList {
         Ok(used.into_iter().collect())
     }
 
-    pub async fn full(
-        store: &AppStore,
-        list_id: CandidateListId,
-    ) -> Result<Option<FullCandidateList>, AppError> {
-        let list = CandidateList::get(store, list_id)?;
-        let Some(list) = list else {
-            return Ok(None);
-        };
-
-        let full_list = CandidateList::build_full_candidate_list(store, list)?;
-
-        Ok(Some(full_list))
-    }
-
     pub async fn update_order(
         store: &AppStore,
         list_id: CandidateListId,
         person_ids: &[PersonId],
     ) -> Result<FullCandidateList, AppError> {
-        let Some(mut list) = CandidateList::get(store, list_id)? else {
+        let Some(mut list) = store.get_candidate_list(list_id)? else {
             return Err(AppError::NotFound("candidate list not found".to_string()));
         };
 
@@ -145,7 +89,7 @@ impl CandidateList {
         list_id: CandidateListId,
         person_id: PersonId,
     ) -> Result<(), AppError> {
-        let Some(mut list) = CandidateList::get(store, list_id)? else {
+        let Some(mut list) = store.get_candidate_list(list_id)? else {
             return Err(AppError::NotFound("candidate list not found".to_string()));
         };
 
@@ -164,7 +108,6 @@ impl CandidateList {
         store: &AppStore,
         person_id: PersonId,
     ) -> Result<(), AppError> {
-        let mut removed_any = false;
         let lists = store.get_candidate_lists();
 
         for mut list in lists {
@@ -172,14 +115,7 @@ impl CandidateList {
                 list.candidates.retain(|id| *id != person_id);
                 list.updated_at = Utc::now();
                 store.update(AppEvent::UpdateCandidateList(list)).await?;
-                removed_any = true;
             }
-        }
-
-        if !removed_any {
-            return Err(AppError::NotFound(
-                "candidate not found in any list".to_string(),
-            ));
         }
 
         Ok(())
@@ -190,7 +126,7 @@ impl CandidateList {
         list_id: CandidateListId,
         person_id: PersonId,
     ) -> Result<(), AppError> {
-        let Some(mut list) = CandidateList::get(store, list_id)? else {
+        let Some(mut list) = store.get_candidate_list(list_id)? else {
             return Err(AppError::NotFound("candidate list not found".to_string()));
         };
 
@@ -212,7 +148,7 @@ impl CandidateList {
         list_id: CandidateListId,
         person_id: PersonId,
     ) -> Result<Candidate, AppError> {
-        let Some(list) = CandidateList::get(store, list_id)? else {
+        let Some(list) = store.get_candidate_list(list_id)? else {
             return Err(AppError::NotFound("candidate list not found".to_string()));
         };
 
@@ -223,7 +159,9 @@ impl CandidateList {
             .map(|index| index + 1)
             .ok_or_else(|| AppError::NotFound("candidate not found on list".to_string()))?;
 
-        let person = store.get_person(person_id)?;
+        let person = store
+            .get_person(person_id)?
+            .ok_or(AppError::GenericNotFound)?;
 
         Ok(Candidate {
             list_id,
@@ -236,7 +174,7 @@ impl CandidateList {
         store: &AppStore,
         list_id: CandidateListId,
     ) -> Result<Vec<Person>, AppError> {
-        let list = CandidateList::get(store, list_id)?;
+        let list = store.get_candidate_list(list_id)?;
         let Some(list) = list else {
             return Err(AppError::NotFound("candidate list not found".to_string()));
         };
@@ -267,7 +205,9 @@ impl CandidateList {
     }
 
     pub async fn update(&self, store: &AppStore) -> Result<CandidateList, AppError> {
-        let existing = store.get_candidate_list(self.id)?;
+        let existing = store
+            .get_candidate_list(self.id)?
+            .ok_or(AppError::GenericNotFound)?;
 
         let updated = CandidateList {
             electoral_districts: self.electoral_districts.clone(),
@@ -285,25 +225,18 @@ impl CandidateList {
     }
 
     pub async fn delete(&self, store: &AppStore) -> Result<(), AppError> {
-        store
-            .update(AppEvent::DeleteCandidateList(self.id))
-            .await?;
+        store.update(AppEvent::DeleteCandidateList(self.id)).await?;
 
         Ok(())
     }
 
-    pub async fn delete_by_id(
-        store: &AppStore,
-        list_id: CandidateListId,
-    ) -> Result<(), AppError> {
-        store
-            .update(AppEvent::DeleteCandidateList(list_id))
-            .await?;
+    pub async fn delete_by_id(store: &AppStore, list_id: CandidateListId) -> Result<(), AppError> {
+        store.update(AppEvent::DeleteCandidateList(list_id)).await?;
 
         Ok(())
     }
 
-    fn build_full_candidate_list(
+    pub(crate) fn build_full_candidate_list(
         store: &AppStore,
         list: CandidateList,
     ) -> Result<FullCandidateList, AppError> {
@@ -312,7 +245,9 @@ impl CandidateList {
             .iter()
             .enumerate()
             .map(|(index, person_id)| {
-                let person = store.get_person(*person_id)?;
+                let person = store
+                    .get_person(*person_id)?
+                    .ok_or(AppError::GenericNotFound)?;
                 Ok(Candidate {
                     list_id: list.id,
                     position: index + 1,
@@ -342,13 +277,14 @@ impl CandidateList {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::types::chrono::Utc;
     use crate::{
-        AppStore, candidate_lists,
+        AppStore,
+        candidate_lists::CandidateListSummary,
         common::store::AppEvent,
         persons::PersonId,
         test_utils::{sample_candidate_list, sample_person_with_last_name},
     };
+    use sqlx::types::chrono::Utc;
 
     fn base_candidate_list(electoral_districts: Vec<ElectoralDistrict>) -> CandidateList {
         CandidateList {
@@ -403,7 +339,7 @@ mod tests {
 
         list.create(&store).await?;
 
-        let lists = CandidateList::list_summary(&store)?;
+        let lists = CandidateListSummary::get(&store)?;
         assert_eq!(1, lists.len());
         assert_eq!(list.id, lists[0].list.id);
         assert_eq!(0, lists[0].person_count);
@@ -422,7 +358,7 @@ mod tests {
         let list3 = insert_list(&store, vec![ElectoralDistrict::OV, ElectoralDistrict::GR]).await?;
 
         // test
-        let lists = CandidateList::list_summary(&store)?;
+        let lists = CandidateListSummary::get(&store)?;
 
         // verification
         assert_eq!(3, lists.len());
@@ -540,8 +476,9 @@ mod tests {
         insert_list(&store, vec![]).await?;
 
         // test
-        let result: BTreeSet<ElectoralDistrict> =
-            CandidateList::used_districts(&store, vec![])?.into_iter().collect();
+        let result: BTreeSet<ElectoralDistrict> = CandidateList::used_districts(&store, vec![])?
+            .into_iter()
+            .collect();
 
         // verify
         assert_eq!(expected, result);
@@ -572,8 +509,9 @@ mod tests {
         insert_list(&store, vec![ElectoralDistrict::UT, ElectoralDistrict::OV]).await?;
 
         // test
-        let result: BTreeSet<ElectoralDistrict> =
-            CandidateList::used_districts(&store, vec![])?.into_iter().collect();
+        let result: BTreeSet<ElectoralDistrict> = CandidateList::used_districts(&store, vec![])?
+            .into_iter()
+            .collect();
 
         // verify
         assert_eq!(expected, result);
@@ -599,9 +537,10 @@ mod tests {
             .id;
 
         // test
-        let result: BTreeSet<ElectoralDistrict> = CandidateList::used_districts(&store, vec![exclude_id])?
-            .into_iter()
-            .collect();
+        let result: BTreeSet<ElectoralDistrict> =
+            CandidateList::used_districts(&store, vec![exclude_id])?
+                .into_iter()
+                .collect();
 
         // verify
         assert_eq!(expected, result);
@@ -634,10 +573,8 @@ mod tests {
         CandidateList::delete_by_id(&store, list_a.id).await?;
 
         // verify
-        let lists = CandidateList::list_summary(&store)?;
-        let list_b_from_db = CandidateList::full(&store, list_b.id)
-            .await?
-            .unwrap();
+        let lists = CandidateListSummary::get(&store)?;
+        let list_b_from_db = FullCandidateList::get(&store, list_b.id).await?.unwrap();
         // one list remains
         assert_eq!(1, lists.len());
         // the correct list got deleted
@@ -668,7 +605,7 @@ mod tests {
             .await?;
         CandidateList::update_order(&store, list_id, &[person_a.id, person_b.id]).await?;
 
-        let detail = CandidateList::full(&store, list_id)
+        let detail = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(2, detail.candidates.len());
@@ -692,7 +629,7 @@ mod tests {
     #[tokio::test]
     async fn get_full_candidate_list_returns_none_for_missing_list() -> Result<(), AppError> {
         let store = AppStore::default();
-        let missing = CandidateList::full(&store, CandidateListId::new()).await?;
+        let missing = FullCandidateList::get(&store, CandidateListId::new()).await?;
         assert!(missing.is_none());
 
         Ok(())
@@ -717,7 +654,7 @@ mod tests {
         CandidateList::append_candidate(&store, list_id, person_a.id).await?;
         CandidateList::append_candidate(&store, list_id, person_b.id).await?;
 
-        let detail = CandidateList::full(&store, list_id)
+        let detail = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
 
@@ -761,22 +698,11 @@ mod tests {
 
         CandidateList::remove_candidate_from_all(&store, person_a.id).await?;
 
-        let detail = CandidateList::full(&store, list_id)
+        let detail = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(detail.candidates.len(), 1);
         assert_eq!(detail.candidates[0].person.id, person_b.id);
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn remove_candidate_returns_not_found() -> Result<(), AppError> {
-        let store = AppStore::default();
-        let err = CandidateList::remove_candidate_from_all(&store, PersonId::new())
-            .await
-            .unwrap_err();
-        assert!(matches!(err, AppError::NotFound(_)));
 
         Ok(())
     }

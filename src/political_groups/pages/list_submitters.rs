@@ -1,21 +1,15 @@
 use super::ListSubmittersPath;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
-    form::{FormData, Validate},
-    political_groups::{ListSubmitter, PoliticalGroup, PreferredSubmitterForm},
+    political_groups::{AuthorisedAgent, ListSubmitter, PoliticalGroup},
 };
 use askama::Template;
-use axum::{
-    extract::State,
-    response::{IntoResponse, Redirect, Response},
-};
-use axum_extra::extract::Form;
+use axum::{extract::State, response::IntoResponse};
 
 #[derive(Template)]
 #[template(path = "political_groups/list_submitters.html")]
 struct ListSubmittersTemplate {
     list_submitters: Vec<ListSubmitter>,
-    form: FormData<PreferredSubmitterForm>,
 }
 
 pub async fn list_submitters(
@@ -27,43 +21,9 @@ pub async fn list_submitters(
     let list_submitters = PoliticalGroup::list_submitters(&store, political_group.id)?;
 
     Ok(HtmlTemplate(
-        ListSubmittersTemplate {
-            list_submitters,
-            form: FormData::new_with_data(political_group.clone().into(), &context.csrf_tokens),
-        },
+        ListSubmittersTemplate { list_submitters },
         context,
     ))
-}
-
-pub async fn update_list_submitters(
-    _: ListSubmittersPath,
-    context: Context,
-    political_group: PoliticalGroup,
-    State(store): State<AppStore>,
-    Form(form): Form<PreferredSubmitterForm>,
-) -> Result<Response, AppError> {
-    let list_submitters = PoliticalGroup::list_submitters(&store, political_group.id)?;
-
-    match form.validate_update(&political_group, &context.csrf_tokens) {
-        Err(form_data) => Ok(HtmlTemplate(
-            ListSubmittersTemplate {
-                form: form_data,
-                list_submitters,
-            },
-            context,
-        )
-        .into_response()),
-        Ok(form_data) => {
-            PoliticalGroup::set_default_list_submitter(
-                &store,
-                political_group.id,
-                form_data.list_submitter_id,
-            )
-            .await?;
-
-            Ok(Redirect::to(&ListSubmitter::list_path()).into_response())
-        }
-    }
 }
 
 #[cfg(test)]
@@ -73,7 +33,7 @@ mod tests {
 
     use crate::{
         AppError, AppStore, Context,
-        political_groups::{self, ListSubmitterId, PoliticalGroupId},
+        political_groups::{ListSubmitterId, PoliticalGroupId},
         test_utils::{response_body_string, sample_list_submitter, sample_political_group},
     };
 
@@ -86,9 +46,7 @@ mod tests {
         let list_submitter = sample_list_submitter(submitter_id);
 
         political_group.create(&store).await?;
-        list_submitter
-            .create(&store, political_group.id)
-            .await?;
+        list_submitter.create(&store, political_group.id).await?;
 
         let response = list_submitters(
             ListSubmittersPath {},
@@ -116,9 +74,7 @@ mod tests {
         let list_submitter = sample_list_submitter(submitter_id);
 
         political_group.create(&store).await?;
-        list_submitter
-            .create(&store, political_group.id)
-            .await?;
+        list_submitter.create(&store, political_group.id).await?;
 
         let response = list_submitters(
             ListSubmittersPath {},

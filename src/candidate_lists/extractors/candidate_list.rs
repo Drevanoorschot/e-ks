@@ -1,11 +1,7 @@
 use axum::extract::{FromRef, FromRequestParts, Path};
 use sqlx::PgPool;
 
-use crate::{
-    AppError, AppStore, Context, CsrfTokens,
-    candidate_lists::CandidateList,
-    trans,
-};
+use crate::{AppError, AppStore, Context, CsrfTokens, candidate_lists::CandidateList, trans};
 
 use super::CandidateListPathParams;
 
@@ -27,9 +23,13 @@ where
         let Path(CandidateListPathParams { list_id }) =
             Path::<CandidateListPathParams>::from_request_parts(parts, state).await?;
 
-        let candidate_list = CandidateList::get(&store, list_id)?.ok_or(
-            AppError::NotFound(trans!("candidate_list.not_found", context.locale, list_id)),
-        )?;
+        let candidate_list = store
+            .get_candidate_list(list_id)?
+            .ok_or(AppError::NotFound(trans!(
+                "candidate_list.not_found",
+                context.locale,
+                list_id
+            )))?;
 
         Ok(candidate_list)
     }
@@ -50,7 +50,7 @@ mod tests {
 
     use crate::{
         AppState, Locale,
-        candidate_lists::{self, CandidateListId},
+        candidate_lists::CandidateListId,
         common::store::AppEvent,
         render_error_pages,
         test_utils::{response_body_string, sample_candidate_list},

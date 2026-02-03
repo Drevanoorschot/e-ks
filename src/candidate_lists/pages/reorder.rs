@@ -17,8 +17,7 @@ pub async fn reorder_candidate_list(
     State(store): State<AppStore>,
     Json(payload): Json<CandidateListReorderPayload>,
 ) -> Result<impl IntoResponse, AppError> {
-    CandidateList::update_order(&store, candidate_list.id, &payload.person_ids)
-        .await?;
+    CandidateList::update_order(&store, candidate_list.id, &payload.person_ids).await?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -29,7 +28,7 @@ mod tests {
 
     use crate::{
         AppStore,
-        candidate_lists::{self, CandidateListId},
+        candidate_lists::{CandidateListId, FullCandidateList},
         common::store::AppEvent,
         persons::PersonId,
         test_utils::{sample_candidate_list, sample_person_with_last_name},
@@ -50,8 +49,7 @@ mod tests {
         store
             .update(AppEvent::CreatePerson(person_b.clone()))
             .await?;
-        CandidateList::update_order(&store, list_id, &[person_a.id, person_b.id])
-            .await?;
+        CandidateList::update_order(&store, list_id, &[person_a.id, person_b.id]).await?;
 
         let response = reorder_candidate_list(
             CandidateListReorderPath { list_id },
@@ -66,7 +64,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::NO_CONTENT);
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(full_list.candidates.len(), 2);

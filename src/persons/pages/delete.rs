@@ -5,7 +5,8 @@ use axum::{
 use axum_extra::extract::Form;
 
 use crate::{
-    AppError, AppStore, Context, candidate_lists,
+    AppError, AppStore, Context,
+    candidate_lists::CandidateList,
     form::{EmptyForm, Validate},
     persons::{Person, pages::DeletePersonPath},
 };
@@ -22,13 +23,7 @@ pub async fn delete_person(
             Ok(Redirect::to(&Person::list_path()).into_response())
         }
         Ok(_) => {
-            match candidate_lists::CandidateList::remove_candidate_from_all(&store, person_id).await {
-                Err(AppError::NotFound(_)) => {
-                    // Candidate was not part of any candidate list, continue deletion
-                }
-                Err(e) => return Err(e.into()),
-                _ => {}
-            }
+            CandidateList::remove_candidate_from_all(&store, person_id).await?;
 
             Person::delete_by_id(&store, person_id).await?;
             // TODO: set success flash message
@@ -42,11 +37,7 @@ mod tests {
     use super::*;
     use axum_extra::extract::Form;
 
-    use crate::{
-        AppError, AppStore, Context,
-        persons::{self, PersonId},
-        test_utils::sample_person,
-    };
+    use crate::{AppError, AppStore, Context, persons::PersonId, test_utils::sample_person};
 
     #[tokio::test]
     async fn delete_person_removes_and_redirects() -> Result<(), AppError> {
@@ -77,8 +68,8 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, Person::list_path());
 
-        let found = store.get_person(person_id);
-        assert!(found.is_err());
+        let found = store.get_person(person_id)?;
+        assert!(found.is_none());
 
         Ok(())
     }

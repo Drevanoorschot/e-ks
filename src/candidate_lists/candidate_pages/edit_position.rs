@@ -88,12 +88,8 @@ pub async fn update_candidate_position(
                 CandidatePositionAction::Move => {
                     let mut full_list = full_list;
                     full_list.update_position(candidate.person.id, position_form.position);
-                    CandidateList::update_order(
-                        &store,
-                        candidate.list_id,
-                        &full_list.get_ids(),
-                    )
-                    .await?;
+                    CandidateList::update_order(&store, candidate.list_id, &full_list.get_ids())
+                        .await?;
                 }
             }
 
@@ -110,7 +106,7 @@ mod tests {
 
     use crate::{
         AppStore, Context, TokenValue,
-        candidate_lists::{self, CandidateListId},
+        candidate_lists::CandidateListId,
         common::store::AppEvent,
         persons::PersonId,
         test_utils::{
@@ -142,7 +138,7 @@ mod tests {
         store.update(AppEvent::CreatePerson(person.clone())).await?;
         CandidateList::update_order(&store, list_id, &[person.id]).await?;
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         let candidate = CandidateList::get_candidate(&store, list_id, person.id).await?;
@@ -182,10 +178,9 @@ mod tests {
         store
             .update(AppEvent::CreatePerson(person_b.clone()))
             .await?;
-        CandidateList::update_order(&store, list_id, &[person_a.id, person_b.id])
-            .await?;
+        CandidateList::update_order(&store, list_id, &[person_a.id, person_b.id]).await?;
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         let candidate = CandidateList::get_candidate(&store, list_id, person_a.id).await?;
@@ -210,7 +205,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(full_list.candidates.len(), 2);
@@ -235,10 +230,9 @@ mod tests {
         store
             .update(AppEvent::CreatePerson(person_b.clone()))
             .await?;
-        CandidateList::update_order(&store, list_id, &[person_a.id, person_b.id])
-            .await?;
+        CandidateList::update_order(&store, list_id, &[person_a.id, person_b.id]).await?;
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         let candidate = CandidateList::get_candidate(&store, list_id, person_a.id).await?;
@@ -263,7 +257,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(full_list.candidates.len(), 1);
@@ -287,10 +281,9 @@ mod tests {
         store
             .update(AppEvent::CreatePerson(person_b.clone()))
             .await?;
-        CandidateList::update_order(&store, list_id, &[person_a.id, person_b.id])
-            .await?;
+        CandidateList::update_order(&store, list_id, &[person_a.id, person_b.id]).await?;
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         let candidate = CandidateList::get_candidate(&store, list_id, person_a.id).await?;
@@ -317,7 +310,7 @@ mod tests {
         let body = response_body_string(response).await;
         assert!(body.contains("The CSRF token is invalid."));
 
-        let full_list = CandidateList::full(&store, list_id)
+        let full_list = FullCandidateList::get(&store, list_id)
             .await?
             .expect("candidate list");
         assert_eq!(full_list.candidates.len(), 2);
