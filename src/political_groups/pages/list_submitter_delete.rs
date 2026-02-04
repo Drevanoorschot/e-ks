@@ -35,6 +35,7 @@ pub async fn delete_list_submitter(
 mod tests {
     use super::*;
     use axum_extra::extract::Form;
+    use sqlx::PgPool;
 
     use crate::{
         AppError, AppStore, Context, TokenValue,
@@ -42,9 +43,11 @@ mod tests {
         test_utils::{sample_list_submitter, sample_political_group},
     };
 
-    #[tokio::test]
-    async fn delete_list_submitter_removes_and_redirects() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn delete_list_submitter_removes_and_redirects(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
         let submitter_id = ListSubmitterId::new();
@@ -79,9 +82,11 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn delete_list_submitter_invalid_csrf_redirects_to_edit() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn delete_list_submitter_invalid_csrf_redirects_to_edit(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
         let submitter_id = ListSubmitterId::new();

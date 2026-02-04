@@ -25,18 +25,19 @@ pub async fn reorder_candidate_list(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlx::PgPool;
 
     use crate::{
         AppStore,
         candidate_lists::{CandidateListId, FullCandidateList},
-        common::store::AppEvent,
+        AppEvent,
         persons::PersonId,
         test_utils::{sample_candidate_list, sample_person_with_last_name},
     };
 
-    #[tokio::test]
-    async fn reorder_candidate_list_updates_positions() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn reorder_candidate_list_updates_positions(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person_a = sample_person_with_last_name(PersonId::new(), "Jansen");

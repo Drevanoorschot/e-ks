@@ -79,6 +79,7 @@ mod tests {
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
+    use sqlx::PgPool;
 
     use crate::{
         AppError, AppStore, Context,
@@ -89,9 +90,11 @@ mod tests {
         },
     };
 
-    #[tokio::test]
-    async fn edit_authorised_agent_renders_existing_agent() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn edit_authorised_agent_renders_existing_agent(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
         let agent_id = AuthorisedAgentId::new();
@@ -117,9 +120,11 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_authorised_agent_persists_and_redirects() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_authorised_agent_persists_and_redirects(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
         let agent_id = AuthorisedAgentId::new();
@@ -158,9 +163,11 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_authorised_agent_invalid_form_renders_template() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_authorised_agent_invalid_form_renders_template(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
         let agent_id = AuthorisedAgentId::new();

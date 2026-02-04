@@ -28,18 +28,19 @@ pub async fn view_candidate_list(
 mod tests {
     use super::*;
     use axum::response::IntoResponse;
+    use sqlx::PgPool;
 
     use crate::{
         AppStore, Context,
         candidate_lists::CandidateListId,
-        common::store::AppEvent,
+        AppEvent,
         persons::PersonId,
         test_utils::{response_body_string, sample_candidate_list, sample_person},
     };
 
-    #[tokio::test]
-    async fn view_candidate_list_renders_candidates() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn view_candidate_list_renders_candidates(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person(PersonId::new());

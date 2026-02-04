@@ -94,13 +94,14 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlx::PgPool;
 
-    #[tokio::test]
-    async fn test_load() {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn test_load(pool: PgPool) {
+        let store = AppStore::new(pool);
         load(&store).await.unwrap();
 
-        let group = store.get_political_group();
+        let group = store.get_political_group().unwrap();
 
         let list_submitters = PoliticalGroup::list_submitters(&store, group.id).unwrap();
         assert_eq!(list_submitters.len(), 2);

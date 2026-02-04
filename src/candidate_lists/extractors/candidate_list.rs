@@ -1,5 +1,4 @@
 use axum::extract::{FromRef, FromRequestParts, Path};
-use sqlx::PgPool;
 
 use crate::{AppError, AppStore, Context, CsrfTokens, candidate_lists::CandidateList, trans};
 
@@ -9,7 +8,6 @@ impl<S> FromRequestParts<S> for CandidateList
 where
     S: Clone + Send + Sync + 'static,
     AppStore: FromRef<S>,
-    PgPool: FromRef<S>,
     CsrfTokens: FromRef<S>,
 {
     type Rejection = AppError;
@@ -51,7 +49,7 @@ mod tests {
     use crate::{
         AppState, Locale,
         candidate_lists::CandidateListId,
-        common::store::AppEvent,
+        AppEvent,
         render_error_pages,
         test_utils::{response_body_string, sample_candidate_list},
         trans,

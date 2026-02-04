@@ -7,7 +7,7 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppStore, Context,
     candidate_lists::{Candidate, CandidateList, candidate_pages::CandidateListDeletePersonPath},
-    common::store::AppEvent,
+    AppEvent,
     form::{EmptyForm, Validate},
 };
 
@@ -40,18 +40,19 @@ mod tests {
     use super::*;
     use axum::http::{StatusCode, header};
     use axum_extra::extract::Form;
+    use sqlx::PgPool;
 
     use crate::{
         AppStore,
         candidate_lists::{CandidateListId, FullCandidateList},
-        common::store::AppEvent,
+        AppEvent,
         persons::PersonId,
         test_utils::{sample_candidate_list, sample_person, sample_person_with_last_name},
     };
 
-    #[tokio::test]
-    async fn delete_person_removes_from_list_and_redirects() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn delete_person_removes_from_list_and_redirects(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person(PersonId::new());

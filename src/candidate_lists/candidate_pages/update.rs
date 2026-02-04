@@ -11,7 +11,7 @@ use crate::{
     candidate_lists::{
         Candidate, CandidateList, FullCandidateList, candidate_pages::CandidateListEditPersonPath,
     },
-    common::store::AppEvent,
+    AppEvent,
     filters,
     form::{FormData, Validate},
     persons::{COUNTRY_CODES, PersonForm},
@@ -77,6 +77,7 @@ pub async fn update_person(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlx::PgPool;
     use axum::{
         http::{StatusCode, header},
         response::IntoResponse,
@@ -86,16 +87,16 @@ mod tests {
     use crate::{
         AppStore, Context,
         candidate_lists::CandidateListId,
-        common::store::AppEvent,
+        AppEvent,
         persons::PersonId,
         test_utils::{
             response_body_string, sample_candidate_list, sample_person, sample_person_form,
         },
     };
 
-    #[tokio::test]
-    async fn edit_person_form_renders_candidate() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn edit_person_form_renders_candidate(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person(PersonId::new());
@@ -128,9 +129,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_person_persists_and_redirects() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_person_persists_and_redirects(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person(PersonId::new());
@@ -172,7 +173,7 @@ mod tests {
         assert_eq!(location, list.view_path());
 
         let updated = store
-            .get_persons()
+            .get_persons()?
             .into_iter()
             .find(|p| p.id == person.id)
             .expect("updated person");
@@ -181,9 +182,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_person_invalid_form_renders_template() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_person_invalid_form_renders_template(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person(PersonId::new());

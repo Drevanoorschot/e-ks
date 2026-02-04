@@ -19,7 +19,7 @@ use crate::{
 #[template(path = "candidate_lists/update.html")]
 struct CandidateListUpdateTemplate {
     candidate_lists: Vec<CandidateListSummary>,
-    total_persons: i64,
+    total_persons: usize,
     form: FormData<CandidateListForm>,
     candidate_list: CandidateList,
 }
@@ -31,7 +31,7 @@ pub async fn edit_candidate_list(
     State(store): State<AppStore>,
 ) -> Result<Response, AppError> {
     let candidate_lists = CandidateListSummary::get(&store)?;
-    let total_persons = store.get_person_count() as i64;
+    let total_persons = store.get_person_count()?;
 
     Ok(HtmlTemplate(
         CandidateListUpdateTemplate {
@@ -56,7 +56,7 @@ pub async fn update_candidate_list(
     Form(form): Form<CandidateListForm>,
 ) -> Result<Response, AppError> {
     let candidate_lists = CandidateListSummary::get(&store)?;
-    let total_persons = store.get_person_count() as i64;
+    let total_persons = store.get_person_count()?;
 
     match form.validate_update(&candidate_list, &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
@@ -82,6 +82,7 @@ mod tests {
     use axum::http::{StatusCode, header};
     use axum_extra::extract::Form;
     use chrono::{DateTime, Duration, Utc};
+    use sqlx::PgPool;
 
     use crate::{
         AppStore, Context, ElectoralDistrict, TokenValue,
@@ -89,9 +90,9 @@ mod tests {
         test_utils::{response_body_string, sample_candidate_list},
     };
 
-    #[tokio::test]
-    async fn edit_candidate_list_renders_existing_list() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn edit_candidate_list_renders_existing_list(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let candidate_list = sample_candidate_list(CandidateListId::new());
 
         candidate_list.create(&store).await?;
@@ -116,9 +117,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_candidate_list_persists_and_redirects() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_candidate_list_persists_and_redirects(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let creation_date = DateTime::from_timestamp(0, 0).unwrap();
@@ -176,9 +177,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_candidate_list_invalid_form_renders_template() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_candidate_list_invalid_form_renders_template(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let creation_date = DateTime::from_timestamp(0, 0).unwrap();
         let candidate_list = CandidateList {
             id: CandidateListId::new(),

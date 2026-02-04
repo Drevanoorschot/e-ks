@@ -47,7 +47,7 @@ pub async fn add_person_to_candidate_list(
 ) -> Result<Response, AppError> {
     let redirect = Redirect::to(&full_list.list.view_path()).into_response();
     let person_exists = store
-        .get_persons()
+        .get_persons()?
         .iter()
         .any(|person| person.id == form.person_id);
 
@@ -63,6 +63,7 @@ pub async fn add_person_to_candidate_list(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlx::PgPool;
     use axum::{
         http::{StatusCode, header},
         response::IntoResponse,
@@ -72,7 +73,7 @@ mod tests {
     use crate::{
         AppStore, Context,
         candidate_lists::CandidateListId,
-        common::store::AppEvent,
+        AppEvent,
         persons::PersonId,
         test_utils::{
             response_body_string, sample_candidate_list, sample_person,
@@ -80,9 +81,9 @@ mod tests {
         },
     };
 
-    #[tokio::test]
-    async fn view_candidate_list_renders_persons() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn view_candidate_list_renders_persons(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person(PersonId::new());
@@ -111,9 +112,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn add_person_to_candidate_list_adds_and_redirects() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn add_person_to_candidate_list_adds_and_redirects(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person_with_last_name(PersonId::new(), "Bakker");
@@ -153,10 +154,11 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn add_person_to_candidate_list_redirects_when_person_not_on_list() -> Result<(), AppError>
-    {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn add_person_to_candidate_list_redirects_when_person_not_on_list(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let existing_person = sample_person_with_last_name(PersonId::new(), "Jansen");

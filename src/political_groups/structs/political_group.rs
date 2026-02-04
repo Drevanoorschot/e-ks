@@ -1,6 +1,6 @@
 use crate::{
     AppError, AppStore,
-    common::store::AppEvent,
+    AppEvent,
     id_newtype,
     political_groups::{AuthorisedAgent, AuthorisedAgentId, ListSubmitter, ListSubmitterId},
 };
@@ -26,7 +26,7 @@ pub struct PoliticalGroup {
 
 impl PoliticalGroup {
     pub fn get_single(store: &AppStore) -> Result<Option<PoliticalGroup>, AppError> {
-        let political_group = store.get_political_group();
+        let political_group = store.get_political_group()?;
 
         Ok(Some(political_group))
     }
@@ -40,7 +40,7 @@ impl PoliticalGroup {
             return Err(AppError::NotFound("Political group not found.".to_string()));
         }
 
-        Ok(store.get_list_submitters())
+        Ok(store.get_list_submitters()?)
     }
 
     pub fn list_authorised_agents(
@@ -52,7 +52,7 @@ impl PoliticalGroup {
             return Err(AppError::NotFound("Political group not found.".to_string()));
         }
 
-        Ok(store.get_authorised_agents())
+        Ok(store.get_authorised_agents()?)
     }
 
     pub fn get_authorised_agent(

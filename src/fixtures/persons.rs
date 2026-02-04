@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{
     AppError, AppStore,
-    common::store::AppEvent,
+    AppEvent,
     persons::{Gender, Person},
 };
 
@@ -103,15 +103,16 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
 #[cfg(test)]
 mod tests {
     use crate::{pagination::SortDirection, persons::PersonSort};
+    use sqlx::PgPool;
 
     use super::*;
 
-    #[tokio::test]
-    async fn test_load() {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn test_load(pool: PgPool) {
+        let store = AppStore::new(pool);
         load(&store).await.unwrap();
         let persons =
-            crate::persons::Person::list(&store, 50, 0, &PersonSort::LastName, &SortDirection::Asc);
+            crate::persons::Person::list(&store, 50, 0, &PersonSort::LastName, &SortDirection::Asc).unwrap();
 
         assert_eq!(persons.len(), 50);
     }

@@ -11,6 +11,7 @@ mod form;
 mod pages;
 mod pagination;
 pub mod router;
+mod store;
 mod submit;
 
 #[cfg(feature = "fixtures")]
@@ -25,10 +26,10 @@ pub use common::{
     locale::Locale,
     logging, new_type, server,
     state::AppState,
-    store::AppStore,
     templates::HtmlTemplate,
     translate,
 };
+pub use store::{AppStore, AppEvent, AppStoreData};
 pub use error::{AppError, AppResponse, ErrorResponse, render_error_pages};
 pub use form::{CsrfToken, CsrfTokens, TokenValue};
 

@@ -4,7 +4,7 @@ use sqlx::types::chrono::Utc;
 
 use crate::{
     AppError, AppStore,
-    common::store::AppEvent,
+    AppEvent,
     id_newtype,
     pagination::SortDirection,
     persons::{Gender, PersonSort},
@@ -200,18 +200,14 @@ impl Person {
         Ok(())
     }
 
-    pub fn count(store: &AppStore) -> usize {
-        store.get_person_count()
-    }
-
     pub fn list(
         store: &AppStore,
-        limit: i64,
-        offset: i64,
+        limit: usize,
+        offset: usize,
         sort_field: &PersonSort,
         sort_direction: &SortDirection,
-    ) -> Vec<Person> {
-        let mut persons = store.get_persons();
+    ) -> Result<Vec<Person>, AppError> {
+        let mut persons = store.get_persons()?;
         persons.sort_by(|a, b| compare_persons(a, b, sort_field));
 
         if matches!(sort_direction, SortDirection::Desc) {
@@ -221,7 +217,7 @@ impl Person {
         let offset = offset.max(0) as usize;
         let limit = limit.max(0) as usize;
 
-        persons.into_iter().skip(offset).take(limit).collect()
+        Ok(persons.into_iter().skip(offset).take(limit).collect())
     }
 }
 
@@ -279,6 +275,7 @@ fn gender_rank(gender: &Option<Gender>) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlx::PgPool;
     use crate::{
         AppStore,
         pagination::SortDirection,
@@ -312,9 +309,9 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn create_and_get_person() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn create_and_get_person(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let id = PersonId::new();
         let person = sample_person(id);
 
@@ -327,9 +324,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_person_overwrites_fields() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_person_overwrites_fields(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let id = PersonId::new();
         let mut person = sample_person(id);
 
@@ -344,9 +341,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn remove_person_deletes_record() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn remove_person_deletes_record(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let id = PersonId::new();
         let person = sample_person(id);
 
@@ -359,9 +356,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_address_overwrites_fields() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_address_overwrites_fields(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let id = PersonId::new();
         let mut person = sample_person(id);
 
@@ -385,9 +382,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn list_and_count_persons() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn list_and_count_persons(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         sample_person_with_last_name(PersonId::new(), "Jansen")
             .create(&store)
             .await?;
@@ -395,10 +392,10 @@ mod tests {
             .create(&store)
             .await?;
 
-        let total = Person::count(&store);
+        let total = store.get_person_count()?;
         assert_eq!(total, 2);
 
-        let persons = Person::list(&store, 10, 0, &PersonSort::LastName, &SortDirection::Asc);
+        let persons = Person::list(&store, 10, 0, &PersonSort::LastName, &SortDirection::Asc)?;
         assert_eq!(persons.len(), 2);
         assert_eq!(persons[0].last_name, "Bakker");
 

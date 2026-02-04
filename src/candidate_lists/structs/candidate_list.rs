@@ -7,7 +7,7 @@ use sqlx::types::chrono::Utc;
 use crate::{
     AppError, AppStore, ElectionConfig, ElectoralDistrict,
     candidate_lists::{Candidate, FullCandidateList},
-    common::store::AppEvent,
+    AppEvent,
     id_newtype,
     persons::{Person, PersonId},
 };
@@ -50,7 +50,7 @@ impl CandidateList {
         let exclude: BTreeSet<CandidateListId> = exclude_list_ids.into_iter().collect();
         let mut used = BTreeSet::<ElectoralDistrict>::new();
 
-        for list in store.get_candidate_lists() {
+        for list in store.get_candidate_lists()? {
             if exclude.contains(&list.id) {
                 continue;
             }
@@ -108,7 +108,7 @@ impl CandidateList {
         store: &AppStore,
         person_id: PersonId,
     ) -> Result<(), AppError> {
-        let lists = store.get_candidate_lists();
+        let lists = store.get_candidate_lists()?;
 
         for mut list in lists {
             if list.candidates.contains(&person_id) {
@@ -183,7 +183,7 @@ impl CandidateList {
             list.candidates.into_iter().map(|id| (id, ())).collect();
 
         Ok(store
-            .get_persons()
+            .get_persons()?
             .into_iter()
             .filter(|person| !existing.contains_key(&person.id))
             .collect())
@@ -261,7 +261,7 @@ impl CandidateList {
 
     fn ensure_persons_exist(store: &AppStore, person_ids: &[PersonId]) -> Result<(), AppError> {
         let existing: BTreeMap<PersonId, ()> = store
-            .get_persons()
+            .get_persons()?
             .into_iter()
             .map(|person| (person.id, ()))
             .collect();
@@ -277,10 +277,11 @@ impl CandidateList {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlx::PgPool;
     use crate::{
         AppStore,
         candidate_lists::CandidateListSummary,
-        common::store::AppEvent,
+        AppEvent,
         persons::PersonId,
         test_utils::{sample_candidate_list, sample_person_with_last_name},
     };
@@ -332,9 +333,9 @@ mod tests {
         list.create(store).await
     }
 
-    #[tokio::test]
-    async fn create_and_list_candidate_lists() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn create_and_list_candidate_lists(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list = sample_candidate_list(CandidateListId::new());
 
         list.create(&store).await?;
@@ -348,9 +349,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn get_candidate_list_summaries_with_duplicate_districts() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn get_candidate_list_summaries_with_duplicate_districts(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         // setup
         let list1 = insert_list(&store, vec![ElectoralDistrict::UT, ElectoralDistrict::DR]).await?;
         let list2 = insert_list(&store, vec![ElectoralDistrict::UT, ElectoralDistrict::GR]).await?;
@@ -395,9 +396,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn list_candidate_list_orders_by_created_at() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn list_candidate_list_orders_by_created_at(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_early = CandidateList {
             id: CandidateListId::new(),
             electoral_districts: vec![ElectoralDistrict::UT],
@@ -416,7 +417,7 @@ mod tests {
         list_early.create(&store).await?;
         list_late.create(&store).await?;
 
-        let lists = store.get_candidate_lists();
+        let lists = store.get_candidate_lists()?;
         assert_eq!(lists.len(), 2);
         assert_eq!(lists[0].id, list_early.id);
         assert_eq!(lists[1].id, list_late.id);
@@ -424,9 +425,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn get_candidate_list_returns_list() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn get_candidate_list_returns_list(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list = sample_candidate_list(CandidateListId::new());
 
         list.create(&store).await?;
@@ -438,9 +439,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_candidate_list_updates_districts() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_candidate_list_updates_districts(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list = sample_candidate_list(CandidateListId::new());
 
         list.create(&store).await?;
@@ -461,9 +462,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn test_get_used_districts() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn test_get_used_districts(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         // setup
         let expected = BTreeSet::from([
             ElectoralDistrict::UT,
@@ -485,9 +486,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn get_used_districts_no_lists() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn get_used_districts_no_lists(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let result = CandidateList::used_districts(&store, vec![])?;
 
         assert_eq!(Vec::<ElectoralDistrict>::new(), result);
@@ -495,9 +496,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn get_used_districts_double_districts() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn get_used_districts_double_districts(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let expected = BTreeSet::from([
             ElectoralDistrict::UT,
             ElectoralDistrict::DR,
@@ -518,9 +519,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn get_used_district_with_exclude() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn get_used_district_with_exclude(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let expected = BTreeSet::from([
             ElectoralDistrict::UT,
             ElectoralDistrict::DR,
@@ -548,9 +549,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn test_remove_candidate_list() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn test_remove_candidate_list(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         // setup
         let list_a = sample_candidate_list(CandidateListId::new());
         let person_a = sample_person_with_last_name(PersonId::new(), "Jansen");
@@ -588,9 +589,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn get_candidate_list_includes_candidates() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn get_candidate_list_includes_candidates(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person_a = sample_person_with_last_name(PersonId::new(), "Jansen");
@@ -615,9 +616,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_candidate_list_order_returns_not_found() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_candidate_list_order_returns_not_found(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let err = CandidateList::update_order(&store, CandidateListId::new(), &[])
             .await
             .unwrap_err();
@@ -626,18 +627,18 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn get_full_candidate_list_returns_none_for_missing_list() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn get_full_candidate_list_returns_none_for_missing_list(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let missing = FullCandidateList::get(&store, CandidateListId::new()).await?;
         assert!(missing.is_none());
 
         Ok(())
     }
 
-    #[tokio::test]
-    async fn test_append_candidate_to_list() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn test_append_candidate_to_list(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person_a = sample_person_with_last_name(PersonId::new(), "Jansen");
@@ -667,9 +668,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn append_candidate_to_list_returns_not_found() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn append_candidate_to_list_returns_not_found(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let err = CandidateList::append_candidate(&store, CandidateListId::new(), PersonId::new())
             .await
             .unwrap_err();
@@ -678,9 +679,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn remove_candidate_removes_from_list() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn remove_candidate_removes_from_list(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person_a = sample_person_with_last_name(PersonId::new(), "Jansen");
@@ -707,9 +708,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn get_candidate_returns_candidate() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn get_candidate_returns_candidate(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person_with_last_name(PersonId::new(), "Jansen");

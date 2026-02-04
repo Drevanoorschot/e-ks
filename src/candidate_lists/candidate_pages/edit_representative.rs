@@ -78,6 +78,7 @@ pub async fn update_representative(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlx::PgPool;
     use axum::{
         extract::Query,
         http::{StatusCode, header},
@@ -95,9 +96,9 @@ mod tests {
         },
     };
 
-    #[tokio::test]
-    async fn edit_representative_renders_candidate() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn edit_representative_renders_candidate(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person(PersonId::new());
@@ -132,9 +133,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn edit_representative_renders_valid_csrf_token() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn edit_representative_renders_valid_csrf_token(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person(PersonId::new());
@@ -173,9 +174,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_representative_persists_and_redirects() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_representative_persists_and_redirects(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person(PersonId::new());
@@ -224,9 +225,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_representative_invalid_form_renders_template() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_representative_invalid_form_renders_template(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person(PersonId::new());

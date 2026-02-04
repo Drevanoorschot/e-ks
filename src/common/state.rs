@@ -11,7 +11,6 @@ use crate::{AppError, AppStore, Config, CsrfTokens};
 
 #[derive(FromRef, Clone)]
 pub struct AppState {
-    pub pool: sqlx::PgPool,
     pub store: AppStore,
     pub config: Config,
     pub csrf_tokens: CsrfTokens,
@@ -22,11 +21,10 @@ impl AppState {
         let config = Config::from_env()?;
         let pool = PgPool::connect_lazy(config.database_url)?;
         let csrf_tokens = CsrfTokens::default();
-        let store = AppStore::new();
+        let store = AppStore::new(pool.clone());
 
         Ok(Self {
             config,
-            pool,
             store,
             csrf_tokens,
         })
@@ -34,11 +32,11 @@ impl AppState {
 
     #[cfg(test)]
     pub async fn new_for_tests(pool: &PgPool) -> Self {
-        use crate::common::store::AppEvent;
+        use crate::AppEvent;
 
         let political_group_id = crate::political_groups::PoliticalGroupId::new();
         let political_group = crate::test_utils::sample_political_group(political_group_id);
-        let store = AppStore::default();
+        let store = AppStore::new(pool.clone());
 
         store
             .update(AppEvent::UpdatePoliticalGroup(political_group))
@@ -47,7 +45,6 @@ impl AppState {
 
         Self {
             config: Config::new_test(),
-            pool: pool.clone(),
             store,
             csrf_tokens: CsrfTokens::default(),
         }

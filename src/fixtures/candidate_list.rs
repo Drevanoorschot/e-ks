@@ -18,11 +18,11 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
     let electoral_districts = ElectionConfig::EK2027.electoral_districts().to_vec();
     let persons = persons::Person::list(
         store,
-        FIXTURE_CANDIDATE_LIST_SIZE as i64,
+        FIXTURE_CANDIDATE_LIST_SIZE,
         0,
         &persons::PersonSort::CreatedAt,
         &SortDirection::Asc,
-    );
+    )?;
     let person_ids = collect_person_ids(persons);
     let uuid = Uuid::new_v5(
         &Uuid::NAMESPACE_OID,
@@ -49,10 +49,11 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
 mod tests {
     use super::*;
     use crate::candidate_lists::CandidateListSummary;
+    use sqlx::PgPool;
 
-    #[tokio::test]
-    async fn test_load() {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn test_load(pool: PgPool) {
+        let store = AppStore::new(pool);
         crate::fixtures::persons::load(&store).await.unwrap();
         load(&store).await.unwrap();
 

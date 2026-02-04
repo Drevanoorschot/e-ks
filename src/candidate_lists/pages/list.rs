@@ -21,7 +21,7 @@ pub async fn list_candidate_lists(
     State(store): State<AppStore>,
 ) -> Result<impl IntoResponse, AppError> {
     let candidate_lists = CandidateListSummary::get(&store)?;
-    let total_persons = store.get_person_count();
+    let total_persons = store.get_person_count()?;
 
     Ok(HtmlTemplate(
         CandidateListIndexTemplate {
@@ -36,6 +36,7 @@ pub async fn list_candidate_lists(
 mod tests {
     use super::*;
     use axum::{http::StatusCode, response::IntoResponse};
+    use sqlx::PgPool;
 
     use crate::{
         AppStore, Context,
@@ -43,9 +44,9 @@ mod tests {
         test_utils::{response_body_string, sample_candidate_list},
     };
 
-    #[tokio::test]
-    async fn list_candidate_lists_shows_created_list() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn list_candidate_lists_shows_created_list(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list = sample_candidate_list(CandidateListId::new());
         list.create(&store).await?;
 

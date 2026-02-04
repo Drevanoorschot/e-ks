@@ -11,7 +11,7 @@ use crate::{
     candidate_lists::{
         Candidate, CandidateList, FullCandidateList, candidate_pages::CandidateListEditAddressPath,
     },
-    common::store::AppEvent,
+    AppEvent,
     filters,
     form::{FormData, Validate},
     persons::{AddressForm, InitialEditQuery},
@@ -81,6 +81,7 @@ pub async fn update_person_address(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlx::PgPool;
     use axum::{
         extract::Query,
         http::{StatusCode, header},
@@ -91,7 +92,7 @@ mod tests {
     use crate::{
         AppStore, Context,
         candidate_lists::CandidateListId,
-        common::store::AppEvent,
+        AppEvent,
         persons::PersonId,
         test_utils::{
             response_body_string, sample_address_form, sample_candidate_list,
@@ -99,9 +100,9 @@ mod tests {
         },
     };
 
-    #[tokio::test]
-    async fn edit_person_address_renders_candidate() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn edit_person_address_renders_candidate(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person_with_last_name(PersonId::new(), "Jansen");
@@ -135,9 +136,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_person_address_persists_and_redirects() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_person_address_persists_and_redirects(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person_with_last_name(PersonId::new(), "Jansen");
@@ -180,7 +181,7 @@ mod tests {
         assert_eq!(location, list.view_path());
 
         let updated = store
-            .get_persons()
+            .get_persons()?
             .into_iter()
             .find(|p| p.id == person.id)
             .expect("updated person");
@@ -189,9 +190,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_person_address_invalid_form_renders_template() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_person_address_invalid_form_renders_template(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
         let person = sample_person_with_last_name(PersonId::new(), "Jansen");

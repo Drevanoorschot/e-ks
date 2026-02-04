@@ -27,6 +27,7 @@ pub async fn list_persons(
 mod tests {
     use super::*;
     use axum::{http::StatusCode, response::IntoResponse};
+    use sqlx::PgPool;
 
     use crate::{
         AppError, AppStore, Context,
@@ -35,9 +36,9 @@ mod tests {
         test_utils::{response_body_string, sample_person},
     };
 
-    #[tokio::test]
-    async fn list_persons_shows_created_person() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn list_persons_shows_created_person(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let id = PersonId::new();
         let person = sample_person(id);
 

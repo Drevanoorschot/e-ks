@@ -70,6 +70,7 @@ mod tests {
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
+    use sqlx::PgPool;
 
     use crate::{
         AppError, AppStore, Context,
@@ -77,11 +78,11 @@ mod tests {
         test_utils::{response_body_string, sample_list_submitter_form, sample_political_group},
     };
 
-    #[tokio::test]
-    async fn new_list_submitter_form_renders_csrf_field() {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn new_list_submitter_form_renders_csrf_field(pool: PgPool) {
+        let store = AppStore::new(pool);
         let context = Context::new_test_without_db();
-        let group_id = store.get_political_group().id;
+        let group_id = store.get_political_group().unwrap().id;
 
         let response = new_list_submitter_form(
             ListSubmitterNewPath {},
@@ -99,9 +100,11 @@ mod tests {
         assert!(body.contains(&format!("action=\"{}\"", ListSubmitter::new_path())));
     }
 
-    #[tokio::test]
-    async fn create_list_submitter_persists_and_redirects() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn create_list_submitter_persists_and_redirects(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
         political_group.create(&store).await?;
@@ -135,9 +138,11 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn create_list_submitter_invalid_form_renders_template() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn create_list_submitter_invalid_form_renders_template(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
         political_group.create(&store).await?;

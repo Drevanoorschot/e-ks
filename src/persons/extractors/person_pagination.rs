@@ -21,7 +21,7 @@ where
         let pagination: Pagination<PersonSort> =
             Pagination::from_request_parts(parts, state).await?;
 
-        let total_items = persons::Person::count(&store);
+        let total_items = store.get_person_count()?;
         let pagination = pagination.set_total(total_items);
 
         let persons = persons::Person::list(
@@ -30,7 +30,7 @@ where
             pagination.offset(),
             pagination.sort(),
             pagination.direction(),
-        );
+        )?;
 
         Ok(PersonPagination {
             persons,
@@ -53,7 +53,7 @@ mod tests {
 
     use crate::{
         AppState,
-        common::store::AppEvent,
+        AppEvent,
         persons::PersonId,
         test_utils::{response_body_string, sample_person_with_last_name},
     };

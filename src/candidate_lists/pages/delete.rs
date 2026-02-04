@@ -32,15 +32,16 @@ mod tests {
     use axum::http::{StatusCode, header};
     use axum_extra::extract::Form;
     use chrono::DateTime;
+    use sqlx::PgPool;
 
     use crate::{
         AppStore, ElectoralDistrict, TokenValue,
         candidate_lists::{CandidateListId, CandidateListSummary},
     };
 
-    #[tokio::test]
-    async fn delete_candidate_list_and_redirect() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn delete_candidate_list_and_redirect(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let candidate_list = CandidateList {
@@ -81,9 +82,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn delete_candidate_invalid_form_renders_template() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn delete_candidate_invalid_form_renders_template(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let context = Context::new_test_without_db();
         let csrf_token = TokenValue("invalid".to_string());
         let candidate_list = CandidateList {

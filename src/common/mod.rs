@@ -7,7 +7,6 @@ pub mod logging;
 pub mod new_type;
 pub mod server;
 pub mod state;
-pub mod store;
 pub mod templates;
 pub mod translate;
 

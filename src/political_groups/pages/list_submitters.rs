@@ -30,6 +30,7 @@ pub async fn list_submitters(
 mod tests {
     use super::*;
     use axum::{http::StatusCode, response::IntoResponse};
+    use sqlx::PgPool;
 
     use crate::{
         AppError, AppStore, Context,
@@ -37,9 +38,9 @@ mod tests {
         test_utils::{response_body_string, sample_list_submitter, sample_political_group},
     };
 
-    #[tokio::test]
-    async fn list_submitters_shows_created_submitter() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn list_submitters_shows_created_submitter(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
         let submitter_id = ListSubmitterId::new();
@@ -65,9 +66,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn list_submitters_shows_edit_link() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn list_submitters_shows_edit_link(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
         let submitter_id = ListSubmitterId::new();

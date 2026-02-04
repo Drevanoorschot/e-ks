@@ -75,6 +75,7 @@ pub async fn update_representative(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlx::PgPool;
     use axum::{
         extract::Query,
         http::{StatusCode, header},
@@ -90,9 +91,9 @@ mod tests {
         },
     };
 
-    #[tokio::test]
-    async fn edit_representative_renders_existing_person() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn edit_representative_renders_existing_person(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
@@ -116,9 +117,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn edit_representative_renders_valid_csrf_token() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn edit_representative_renders_valid_csrf_token(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
@@ -146,9 +147,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_representative_persists_and_redirects() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_representative_persists_and_redirects(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
@@ -186,9 +187,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_representative_invalid_form_renders_template() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_representative_invalid_form_renders_template(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 

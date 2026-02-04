@@ -69,6 +69,7 @@ pub async fn update_person(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlx::PgPool;
     use axum::{
         http::{StatusCode, header},
         response::IntoResponse,
@@ -81,9 +82,9 @@ mod tests {
         test_utils::{response_body_string, sample_person, sample_person_form},
     };
 
-    #[tokio::test]
-    async fn edit_person_form_renders_existing_person() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn edit_person_form_renders_existing_person(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
@@ -106,9 +107,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_person_persists_and_redirects() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_person_persists_and_redirects(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
@@ -145,9 +146,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_person_invalid_form_renders_template() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_person_invalid_form_renders_template(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 

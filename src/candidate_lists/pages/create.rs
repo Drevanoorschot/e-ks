@@ -29,7 +29,7 @@ pub async fn new_candidate_list_form(
     State(store): State<AppStore>,
 ) -> Result<impl IntoResponse, AppError> {
     let candidate_lists = CandidateListSummary::get(&store)?;
-    let total_persons = store.get_person_count();
+    let total_persons = store.get_person_count()?;
     let used_districts = CandidateList::used_districts(&store, vec![])?;
     let available_districts = context.election.available_districts(used_districts);
 
@@ -61,7 +61,7 @@ pub async fn create_candidate_list(
     match form.validate_create(&context.csrf_tokens) {
         Err(form_data) => {
             let candidate_lists = CandidateListSummary::get(&store)?;
-            let total_persons = store.get_person_count();
+            let total_persons = store.get_person_count()?;
 
             Ok(HtmlTemplate(
                 CandidateListCreateTemplate {
@@ -83,6 +83,7 @@ pub async fn create_candidate_list(
 #[cfg(test)]
 mod test {
     use std::collections::BTreeSet;
+    use sqlx::PgPool;
 
     use super::*;
     use axum::{
@@ -95,9 +96,9 @@ mod test {
         AppStore, Context, ElectoralDistrict, TokenValue, test_utils::response_body_string,
     };
 
-    #[tokio::test]
-    async fn new_candidate_list_form_renders_csrf_field() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn new_candidate_list_form_renders_csrf_field(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let response = new_candidate_list_form(
             CandidateListNewPath {},
             Context::new_test_without_db(),
@@ -114,9 +115,9 @@ mod test {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn create_candidate_list_persists_and_redirects() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn create_candidate_list_persists_and_redirects(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let form = CandidateListForm {
@@ -147,9 +148,9 @@ mod test {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn create_candidate_list_invalid_form_renders_template() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn create_candidate_list_invalid_form_renders_template(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let form = CandidateListForm {
             electoral_districts: vec![ElectoralDistrict::UT],
             csrf_token: TokenValue("invalid".to_string()),

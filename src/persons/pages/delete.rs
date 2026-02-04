@@ -36,12 +36,13 @@ pub async fn delete_person(
 mod tests {
     use super::*;
     use axum_extra::extract::Form;
+    use sqlx::PgPool;
 
     use crate::{AppError, AppStore, Context, persons::PersonId, test_utils::sample_person};
 
-    #[tokio::test]
-    async fn delete_person_removes_and_redirects() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn delete_person_removes_and_redirects(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 

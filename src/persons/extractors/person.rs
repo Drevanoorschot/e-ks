@@ -56,7 +56,7 @@ mod tests {
 
     use crate::{
         AppState, Locale,
-        common::store::AppEvent,
+        AppEvent,
         render_error_pages,
         test_utils::{response_body_string, sample_person},
     };

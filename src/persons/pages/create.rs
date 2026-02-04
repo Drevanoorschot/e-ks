@@ -64,6 +64,7 @@ pub async fn create_person(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlx::PgPool;
     use axum::{
         http::{StatusCode, header},
         response::IntoResponse,
@@ -91,9 +92,9 @@ mod tests {
         assert!(body.contains("action=\"/persons/new\""));
     }
 
-    #[tokio::test]
-    async fn create_person_persists_and_redirects() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn create_person_persists_and_redirects(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let form = sample_person_form(&csrf_token);
@@ -117,15 +118,15 @@ mod tests {
             .expect("location header value");
         assert!(location.contains("/address"));
 
-        let count = store.get_person_count();
+        let count = store.get_person_count()?;
         assert_eq!(count, 1);
 
         Ok(())
     }
 
-    #[tokio::test]
-    async fn create_person_invalid_form_renders_template() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn create_person_invalid_form_renders_template(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
         let mut form = sample_person_form(&csrf_token);

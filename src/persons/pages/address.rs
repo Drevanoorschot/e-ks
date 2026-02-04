@@ -72,6 +72,7 @@ pub async fn update_person_address(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlx::PgPool;
     use axum::{
         extract::Query,
         http::{StatusCode, header},
@@ -85,9 +86,9 @@ mod tests {
         test_utils::{response_body_string, sample_address_form, sample_person},
     };
 
-    #[tokio::test]
-    async fn edit_person_address_renders_existing_person() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn edit_person_address_renders_existing_person(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let person_id: PersonId = PersonId::new();
         let person = sample_person(person_id);
 
@@ -111,9 +112,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_person_address_persists_and_redirects() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_person_address_persists_and_redirects(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
@@ -151,9 +152,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_person_address_invalid_form_renders_template() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_person_address_invalid_form_renders_template(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
@@ -184,9 +185,9 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn update_person_address_dutch_xor_non_dutch() -> Result<(), AppError> {
-        let store = AppStore::default();
+    #[sqlx::test]
+    async fn update_person_address_dutch_xor_non_dutch(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
