@@ -8,7 +8,9 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
-    political_groups::{AuthorisedAgent, ListSubmitter, ListSubmitterForm, PoliticalGroup},
+    political_groups::{
+        AuthorisedAgent, ListSubmitter, ListSubmitterForm, PoliticalGroup, SubstituteSubmitter,
+    },
 };
 
 use super::ListSubmitterEditPath;
@@ -91,9 +93,7 @@ mod tests {
     };
 
     #[sqlx::test]
-    async fn edit_list_submitter_renders_existing_submitter(
-        pool: PgPool,
-    ) -> Result<(), AppError> {
+    async fn edit_list_submitter_renders_existing_submitter(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
@@ -121,9 +121,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn update_list_submitter_persists_and_redirects(
-        pool: PgPool,
-    ) -> Result<(), AppError> {
+    async fn update_list_submitter_persists_and_redirects(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);

@@ -8,7 +8,9 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
-    political_groups::{AuthorisedAgent, ListSubmitter, PoliticalGroup, PoliticalGroupForm},
+    political_groups::{
+        AuthorisedAgent, ListSubmitter, PoliticalGroup, PoliticalGroupForm, SubstituteSubmitter,
+    },
 };
 
 use super::PoliticalGroupEditPath;
@@ -23,7 +25,6 @@ pub async fn edit_political_group(
     _: PoliticalGroupEditPath,
     context: Context,
     political_group: PoliticalGroup,
-    State(_store): State<AppStore>,
 ) -> Result<Response, AppError> {
     Ok(HtmlTemplate(
         PoliticalGroupUpdateTemplate {
@@ -75,9 +76,7 @@ mod tests {
     };
 
     #[sqlx::test]
-    async fn edit_political_group_renders_existing_data(
-        pool: PgPool,
-    ) -> Result<(), AppError> {
+    async fn edit_political_group_renders_existing_data(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
@@ -88,7 +87,6 @@ mod tests {
             PoliticalGroupEditPath {},
             Context::new_test_without_db(),
             political_group,
-            State(store),
         )
         .await
         .unwrap()
@@ -103,9 +101,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn update_political_group_persists_and_redirects(
-        pool: PgPool,
-    ) -> Result<(), AppError> {
+    async fn update_political_group_persists_and_redirects(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);

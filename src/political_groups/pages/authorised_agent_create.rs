@@ -9,7 +9,9 @@ use super::AuthorisedAgentNewPath;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
-    political_groups::{AuthorisedAgent, AuthorisedAgentForm, ListSubmitter, PoliticalGroup},
+    political_groups::{
+        AuthorisedAgent, AuthorisedAgentForm, ListSubmitter, PoliticalGroup, SubstituteSubmitter,
+    },
 };
 
 #[derive(Template)]

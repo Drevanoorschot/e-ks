@@ -6,8 +6,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    AppError, AppStore,
-    AppEvent,
+    AppError, AppEvent, AppStore,
     persons::{Gender, Person},
 };
 
@@ -112,7 +111,8 @@ mod tests {
         let store = AppStore::new(pool);
         load(&store).await.unwrap();
         let persons =
-            crate::persons::Person::list(&store, 50, 0, &PersonSort::LastName, &SortDirection::Asc).unwrap();
+            crate::persons::Person::list(&store, 50, 0, &PersonSort::LastName, &SortDirection::Asc)
+                .unwrap();
 
         assert_eq!(persons.len(), 50);
     }

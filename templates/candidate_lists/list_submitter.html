@@ -1,0 +1,41 @@
+{% extends "candidate_lists/list.html" %}
+
+{% block body_class %}overlay-open{% endblock %}
+
+{% block overlay %}
+<div class="overlay-backdrop"></div>
+<form method="post" action="{{ candidate_list.edit_list_submitter_path() }}" class="overlay">
+  <header>
+    <h2>
+      {{ "candidate_list.form.create.title"|trans }}
+    </h2>
+    <a href="{{ candidate_list.view_path() }}" class="close-overlay" aria-label="{{ "action.close"|trans }}">
+      <span>{{ "action.close"|trans }}</span>
+    </a>
+  </header>
+  <div class="overlay-content steps">
+    <div class="steps-nav">
+      <ul>
+        <li>
+          <a href="{{ candidate_list.update_path() }}">
+            {{ "candidate_list.fields.electoral_districts"|trans }}
+          </a>
+        </li>
+        <li>
+          <a href="{{ candidate_list.edit_list_submitter_path() }}">
+            {{ "candidate_list.fields.list_submitter"|trans }}
+          </a>
+        </li>
+      </ul>
+    </div>
+    <div class="form">
+      {% include "candidate_lists/components/list_submitter_form.html" %}
+    </div>
+  </div>
+  <footer>
+    <button type="submit" class="button">
+      {{ "action.save"|trans }}
+    </button>
+  </footer>
+</form>
+{% endblock %}

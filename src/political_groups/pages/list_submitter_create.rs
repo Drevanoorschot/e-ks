@@ -9,7 +9,9 @@ use super::ListSubmitterNewPath;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
-    political_groups::{AuthorisedAgent, ListSubmitter, ListSubmitterForm, PoliticalGroup},
+    political_groups::{
+        AuthorisedAgent, ListSubmitter, ListSubmitterForm, PoliticalGroup, SubstituteSubmitter,
+    },
 };
 
 #[derive(Template)]
@@ -101,9 +103,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn create_list_submitter_persists_and_redirects(
-        pool: PgPool,
-    ) -> Result<(), AppError> {
+    async fn create_list_submitter_persists_and_redirects(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);

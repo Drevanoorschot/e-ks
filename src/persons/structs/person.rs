@@ -3,9 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::types::chrono::Utc;
 
 use crate::{
-    AppError, AppStore,
-    AppEvent,
-    id_newtype,
+    AppError, AppEvent, AppStore, id_newtype,
     pagination::SortDirection,
     persons::{Gender, PersonSort},
 };
@@ -214,8 +212,8 @@ impl Person {
             persons.reverse();
         }
 
-        let offset = offset.max(0) as usize;
-        let limit = limit.max(0) as usize;
+        let offset = offset.max(0);
+        let limit = limit.max(0);
 
         Ok(persons.into_iter().skip(offset).take(limit).collect())
     }
@@ -275,14 +273,13 @@ fn gender_rank(gender: &Option<Gender>) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::PgPool;
     use crate::{
         AppStore,
         pagination::SortDirection,
         persons::PersonSort,
         test_utils::{sample_person, sample_person_with_last_name},
     };
-    use sqlx::types::chrono::Utc;
+    use sqlx::{PgPool, types::chrono::Utc};
 
     fn base_person() -> Person {
         Person {

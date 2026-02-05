@@ -1,7 +1,7 @@
 use super::AuthorisedAgentsPath;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
-    political_groups::{AuthorisedAgent, ListSubmitter, PoliticalGroup},
+    political_groups::{AuthorisedAgent, ListSubmitter, PoliticalGroup, SubstituteSubmitter},
 };
 use askama::Template;
 use axum::{extract::State, response::IntoResponse};
@@ -39,9 +39,7 @@ mod tests {
     };
 
     #[sqlx::test]
-    async fn list_authorised_agents_shows_created_agent(
-        pool: PgPool,
-    ) -> Result<(), AppError> {
+    async fn list_authorised_agents_shows_created_agent(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
@@ -69,9 +67,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn list_authorised_agents_shows_edit_link(
-        pool: PgPool,
-    ) -> Result<(), AppError> {
+    async fn list_authorised_agents_shows_edit_link(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);

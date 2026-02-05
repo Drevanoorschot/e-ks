@@ -1,10 +1,10 @@
 use crate::{AppError, AppEvent, AppStore, constants::DEFAULT_STREAM_ID};
 
-#[allow(unused)]
+#[derive(Debug, sqlx::FromRow)]
 pub struct DatabaseEvent {
-    pub event_id: i64,
+    // pub event_id: i64,
     pub payload: serde_json::Value,
-    pub created_at: chrono::DateTime<chrono::Utc>,
+    // pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
 impl AppStore {
@@ -21,77 +21,88 @@ impl AppStore {
         }
 
         Ok(())
-
     }
 
-    async fn catch_up(&self, tx: &mut sqlx::Transaction<'_, sqlx::Postgres>) -> Result<usize, AppError> {
+    async fn catch_up(
+        &self,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    ) -> Result<usize, AppError> {
         let last_id = self.get_last_event_id()?;
 
-        let row = sqlx::query!(
+        let stream_last_id: i64 = sqlx::query_scalar(
             r#"SELECT last_event_id
             FROM streams
             WHERE stream_id = $1
             FOR UPDATE"#,
-            DEFAULT_STREAM_ID
         )
+        .bind(DEFAULT_STREAM_ID)
         .fetch_one(&mut **tx)
         .await?;
 
-        let stream_last_id = row.last_event_id as usize;
-
-        let missing = sqlx::query_as!(
-            DatabaseEvent,
+        let missing: Vec<DatabaseEvent> = sqlx::query_as::<_, DatabaseEvent>(
             r#"
-            SELECT event_id, payload, created_at
+            SELECT payload
             FROM events
             WHERE stream_id = $1 AND event_id > $2
             ORDER BY event_id ASC
             "#,
-            DEFAULT_STREAM_ID,
-            last_id as i64
         )
+        .bind(DEFAULT_STREAM_ID)
+        .bind(last_id as i64)
         .fetch_all(&mut **tx)
         .await?;
 
-        let mut data = self.data.write().map_err(|_| AppError::InternalServerError)?;
+        let mut data = self
+            .data
+            .write()
+            .map_err(|_| AppError::InternalServerError)?;
         for event in missing {
-            let app_event: AppEvent = serde_json::from_value(event.payload).map_err(|_| AppError::InternalServerError)?;
+            let app_event: AppEvent =
+                serde_json::from_value(event.payload).map_err(|_| AppError::InternalServerError)?;
             AppStore::apply(&app_event, &mut data);
         }
 
-        Ok(stream_last_id)
+        Ok(stream_last_id as usize)
     }
 
-    async fn append_once(&self, next_id: usize, event: &AppEvent, tx: &mut sqlx::Transaction<'_, sqlx::Postgres>) -> Result<(), AppError> {
+    async fn append_once(
+        &self,
+        next_id: usize,
+        event: &AppEvent,
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    ) -> Result<(), AppError> {
         let new_payload = serde_json::to_value(event).map_err(|_| AppError::InternalServerError)?;
 
-        sqlx::query!(
+        sqlx::query(
             r#"INSERT INTO events (stream_id, event_id, created_at, payload)
             VALUES ($1, $2, $3, $4)"#,
-            DEFAULT_STREAM_ID,
-            next_id as i64,
-            chrono::Utc::now(),
-            new_payload
         )
+        .bind(DEFAULT_STREAM_ID)
+        .bind(next_id as i64)
+        .bind(chrono::Utc::now())
+        .bind(new_payload)
         .execute(&mut **tx)
         .await?;
 
-        // 4) Update stream counter.
-        sqlx::query!(
-            r#"UPDATE streams SET last_event_id = $2 WHERE stream_id = $1"#,
-            DEFAULT_STREAM_ID,
-            next_id as i64
-        )
-        .execute(&mut **tx)
-        .await?;
+        sqlx::query(r#"UPDATE streams SET last_event_id = $2 WHERE stream_id = $1"#)
+            .bind(DEFAULT_STREAM_ID)
+            .bind(next_id as i64)
+            .execute(&mut **tx)
+            .await?;
 
         Ok(())
     }
 
-    pub async fn update(
-        &self,
-        event: AppEvent,
-    ) -> Result<(), AppError> {
+    pub async fn update(&self, event: AppEvent) -> Result<(), AppError> {
+        sqlx::query(
+            r#"INSERT INTO streams (stream_id, last_event_id)
+            VALUES ($1, 0)
+            ON CONFLICT (stream_id) DO NOTHING"#,
+        )
+        .bind(crate::common::constants::DEFAULT_STREAM_ID)
+        .execute(&self.pool)
+        .await?;
+
         let mut tx = self.pool.begin().await?;
 
         let last_id = match self.catch_up(&mut tx).await {
@@ -116,7 +127,10 @@ impl AppStore {
 
         tx.commit().await?;
 
-        let mut data = self.data.write().map_err(|_| AppError::InternalServerError)?;
+        let mut data = self
+            .data
+            .write()
+            .map_err(|_| AppError::InternalServerError)?;
         AppStore::apply(&event, &mut data);
         data.last_event_id = next_id;
 

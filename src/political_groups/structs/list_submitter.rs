@@ -1,6 +1,4 @@
-use crate::{
-    AppError, AppStore, AppEvent, id_newtype, political_groups::PoliticalGroupId,
-};
+use crate::{AppError, AppEvent, AppStore, id_newtype, political_groups::PoliticalGroupId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

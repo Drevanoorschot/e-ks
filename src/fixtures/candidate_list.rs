@@ -33,6 +33,7 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
         id: uuid.into(),
         electoral_districts,
         candidates: vec![],
+        list_submitter_id: None,
         created_at: Utc::now(),
         updated_at: Utc::now(),
     };

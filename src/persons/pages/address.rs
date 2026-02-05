@@ -72,13 +72,13 @@ pub async fn update_person_address(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::PgPool;
     use axum::{
         extract::Query,
         http::{StatusCode, header},
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
+    use sqlx::PgPool;
 
     use crate::{
         AppError, AppStore, Context,
@@ -153,7 +153,9 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn update_person_address_invalid_form_renders_template(pool: PgPool) -> Result<(), AppError> {
+    async fn update_person_address_invalid_form_renders_template(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let person_id = PersonId::new();
         let person = sample_person(person_id);

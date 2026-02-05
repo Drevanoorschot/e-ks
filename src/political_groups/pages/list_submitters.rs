@@ -1,7 +1,7 @@
 use super::ListSubmittersPath;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
-    political_groups::{AuthorisedAgent, ListSubmitter, PoliticalGroup},
+    political_groups::{AuthorisedAgent, ListSubmitter, PoliticalGroup, SubstituteSubmitter},
 };
 use askama::Template;
 use axum::{extract::State, response::IntoResponse};

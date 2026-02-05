@@ -7,11 +7,10 @@ use axum_extra::extract::Form;
 use chrono::Utc;
 
 use crate::{
-    AppError, AppResponse, AppStore, Context, HtmlTemplate,
+    AppError, AppEvent, AppResponse, AppStore, Context, HtmlTemplate,
     candidate_lists::{
         Candidate, CandidateList, FullCandidateList, candidate_pages::CandidateListEditAddressPath,
     },
-    AppEvent,
     filters,
     form::{FormData, Validate},
     persons::{AddressForm, InitialEditQuery},
@@ -81,18 +80,17 @@ pub async fn update_person_address(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::PgPool;
     use axum::{
         extract::Query,
         http::{StatusCode, header},
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
+    use sqlx::PgPool;
 
     use crate::{
-        AppStore, Context,
+        AppEvent, AppStore, Context,
         candidate_lists::CandidateListId,
-        AppEvent,
         persons::PersonId,
         test_utils::{
             response_body_string, sample_address_form, sample_candidate_list,
@@ -191,7 +189,9 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn update_person_address_invalid_form_renders_template(pool: PgPool) -> Result<(), AppError> {
+    async fn update_person_address_invalid_form_renders_template(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);

@@ -47,6 +47,7 @@ mod tests {
         let candidate_list = CandidateList {
             id: CandidateListId::new(),
             electoral_districts: vec![ElectoralDistrict::UT],
+            list_submitter_id: None,
             candidates: vec![],
             created_at: DateTime::default(),
             updated_at: DateTime::default(),
@@ -90,6 +91,7 @@ mod tests {
         let candidate_list = CandidateList {
             id: CandidateListId::new(),
             electoral_districts: vec![ElectoralDistrict::UT],
+            list_submitter_id: None,
             candidates: vec![],
             created_at: DateTime::default(),
             updated_at: DateTime::default(),

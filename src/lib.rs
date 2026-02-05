@@ -29,9 +29,9 @@ pub use common::{
     templates::HtmlTemplate,
     translate,
 };
-pub use store::{AppStore, AppEvent, AppStoreData};
 pub use error::{AppError, AppResponse, ErrorResponse, render_error_pages};
 pub use form::{CsrfToken, CsrfTokens, TokenValue};
+pub use store::{AppEvent, AppStore, AppStoreData};
 
 #[cfg(test)]
 pub use common::test_utils;

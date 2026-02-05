@@ -16,6 +16,7 @@ districts:
 edit_position: Volgorde op de lijst
 fields:
   electoral_districts: Kiesdistricten
+  list_submitter: Gegevens lijstinleveraar
   position: Positie
 form:
   create:
@@ -23,6 +24,7 @@ form:
   delete_warning_text: Weet u zeker dat u deze kandidatenlijst wilt verwijderen?
   update:
     title: Kandidatenlijst aanpassen
+none: Geen
 not_found: "Kandidatenlijst {} niet gevonden."
 remove_candidate: Uit deze lijst verwijderen
 search_existing_person: Zoek bestaande persoon

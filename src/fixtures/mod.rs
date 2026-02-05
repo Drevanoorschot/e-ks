@@ -16,15 +16,19 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
 }
 
 async fn clear_database(db: &PgPool) -> Result<(), AppError> {
-    sqlx::query!("TRUNCATE TABLE streams CASCADE").execute(db).await?;
-    sqlx::query!("TRUNCATE TABLE events CASCADE").execute(db).await?;
+    sqlx::query("TRUNCATE TABLE streams CASCADE")
+        .execute(db)
+        .await?;
+    sqlx::query("TRUNCATE TABLE events CASCADE")
+        .execute(db)
+        .await?;
 
-    sqlx::query!(
+    sqlx::query(
         r#"INSERT INTO streams (stream_id, last_event_id)
         VALUES ($1, 0)
         ON CONFLICT (stream_id) DO NOTHING"#,
-        crate::common::constants::DEFAULT_STREAM_ID
     )
+    .bind(crate::common::constants::DEFAULT_STREAM_ID)
     .execute(db)
     .await?;
 
@@ -46,7 +50,8 @@ mod tests {
             0,
             &crate::persons::PersonSort::LastName,
             &crate::pagination::SortDirection::Asc,
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(persons.len(), 50);
     }

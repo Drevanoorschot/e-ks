@@ -5,9 +5,8 @@ use axum::{
 use axum_extra::extract::Form;
 
 use crate::{
-    AppError, AppStore, Context,
+    AppError, AppEvent, AppStore, Context,
     candidate_lists::{Candidate, CandidateList, candidate_pages::CandidateListDeletePersonPath},
-    AppEvent,
     form::{EmptyForm, Validate},
 };
 
@@ -43,9 +42,8 @@ mod tests {
     use sqlx::PgPool;
 
     use crate::{
-        AppStore,
+        AppEvent, AppStore,
         candidate_lists::{CandidateListId, FullCandidateList},
-        AppEvent,
         persons::PersonId,
         test_utils::{sample_candidate_list, sample_person, sample_person_with_last_name},
     };

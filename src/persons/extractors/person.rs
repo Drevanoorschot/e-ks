@@ -55,9 +55,7 @@ mod tests {
     use tower::ServiceExt;
 
     use crate::{
-        AppState, Locale,
-        AppEvent,
-        render_error_pages,
+        AppEvent, AppState, Locale, render_error_pages,
         test_utils::{response_body_string, sample_person},
     };
 

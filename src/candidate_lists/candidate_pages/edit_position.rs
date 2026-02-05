@@ -106,9 +106,8 @@ mod tests {
     use sqlx::PgPool;
 
     use crate::{
-        AppStore, Context, TokenValue,
+        AppEvent, AppStore, Context, TokenValue,
         candidate_lists::CandidateListId,
-        AppEvent,
         persons::PersonId,
         test_utils::{
             response_body_string, sample_candidate_list, sample_person,
@@ -268,7 +267,9 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn update_candidate_position_invalid_csrf_renders_template(pool: PgPool) -> Result<(), AppError> {
+    async fn update_candidate_position_invalid_csrf_renders_template(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);

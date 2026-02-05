@@ -52,6 +52,17 @@ impl AppStore {
             AppEvent::DeleteListSubmitter(ls_id) => {
                 data.list_submitters.remove(ls_id);
             }
+            AppEvent::CreateSubstituteSubmitter(ss) => {
+                data.substitute_submitters.insert(ss.id, ss.clone());
+            }
+            AppEvent::UpdateSubstituteSubmitter(ss) => {
+                if let Some(existing) = data.substitute_submitters.get_mut(&ss.id) {
+                    *existing = ss.clone();
+                }
+            }
+            AppEvent::DeleteSubstituteSubmitter(ss_id) => {
+                data.substitute_submitters.remove(ss_id);
+            }
         }
     }
 }

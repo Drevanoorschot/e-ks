@@ -7,11 +7,10 @@ use axum_extra::extract::Form;
 use chrono::Utc;
 
 use crate::{
-    AppError, AppResponse, AppStore, Context, HtmlTemplate,
+    AppError, AppEvent, AppResponse, AppStore, Context, HtmlTemplate,
     candidate_lists::{
         Candidate, CandidateList, FullCandidateList, candidate_pages::CandidateListEditPersonPath,
     },
-    AppEvent,
     filters,
     form::{FormData, Validate},
     persons::{COUNTRY_CODES, PersonForm},
@@ -77,17 +76,16 @@ pub async fn update_person(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::PgPool;
     use axum::{
         http::{StatusCode, header},
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
+    use sqlx::PgPool;
 
     use crate::{
-        AppStore, Context,
+        AppEvent, AppStore, Context,
         candidate_lists::CandidateListId,
-        AppEvent,
         persons::PersonId,
         test_utils::{
             response_body_string, sample_candidate_list, sample_person, sample_person_form,

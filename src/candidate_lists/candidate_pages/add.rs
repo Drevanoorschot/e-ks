@@ -63,17 +63,16 @@ pub async fn add_person_to_candidate_list(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::PgPool;
     use axum::{
         http::{StatusCode, header},
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
+    use sqlx::PgPool;
 
     use crate::{
-        AppStore, Context,
+        AppEvent, AppStore, Context,
         candidate_lists::CandidateListId,
-        AppEvent,
         persons::PersonId,
         test_utils::{
             response_body_string, sample_candidate_list, sample_person,

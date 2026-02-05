@@ -5,11 +5,11 @@ use serde::{Deserialize, Serialize};
 use sqlx::types::chrono::Utc;
 
 use crate::{
-    AppError, AppStore, ElectionConfig, ElectoralDistrict,
+    AppError, AppEvent, AppStore, ElectionConfig, ElectoralDistrict,
     candidate_lists::{Candidate, FullCandidateList},
-    AppEvent,
     id_newtype,
     persons::{Person, PersonId},
+    political_groups::ListSubmitterId,
 };
 
 id_newtype!(pub struct CandidateListId);
@@ -19,6 +19,7 @@ pub struct CandidateList {
     pub id: CandidateListId,
     pub electoral_districts: Vec<ElectoralDistrict>,
     pub candidates: Vec<PersonId>,
+    pub list_submitter_id: Option<ListSubmitterId>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -224,6 +225,27 @@ impl CandidateList {
         Ok(updated)
     }
 
+    pub async fn update_list_submitter(&self, store: &AppStore) -> Result<CandidateList, AppError> {
+        let existing = store
+            .get_candidate_list(self.id)?
+            .ok_or(AppError::GenericNotFound)?;
+
+        let updated = CandidateList {
+            id: existing.id,
+            electoral_districts: existing.electoral_districts,
+            candidates: existing.candidates,
+            list_submitter_id: self.list_submitter_id,
+            created_at: existing.created_at,
+            updated_at: Utc::now(),
+        };
+
+        store
+            .update(AppEvent::UpdateCandidateList(updated.clone()))
+            .await?;
+
+        Ok(updated)
+    }
+
     pub async fn delete(&self, store: &AppStore) -> Result<(), AppError> {
         store.update(AppEvent::DeleteCandidateList(self.id)).await?;
 
@@ -277,21 +299,20 @@ impl CandidateList {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::PgPool;
     use crate::{
-        AppStore,
+        AppEvent, AppStore,
         candidate_lists::CandidateListSummary,
-        AppEvent,
         persons::PersonId,
         test_utils::{sample_candidate_list, sample_person_with_last_name},
     };
-    use sqlx::types::chrono::Utc;
+    use sqlx::{PgPool, types::chrono::Utc};
 
     fn base_candidate_list(electoral_districts: Vec<ElectoralDistrict>) -> CandidateList {
         CandidateList {
             id: CandidateListId::new(),
             electoral_districts,
             candidates: vec![],
+            list_submitter_id: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }
@@ -326,6 +347,7 @@ mod tests {
             id: CandidateListId::new(),
             electoral_districts,
             candidates: vec![],
+            list_submitter_id: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
@@ -350,7 +372,9 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn get_candidate_list_summaries_with_duplicate_districts(pool: PgPool) -> Result<(), AppError> {
+    async fn get_candidate_list_summaries_with_duplicate_districts(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         // setup
         let list1 = insert_list(&store, vec![ElectoralDistrict::UT, ElectoralDistrict::DR]).await?;
@@ -403,6 +427,7 @@ mod tests {
             id: CandidateListId::new(),
             electoral_districts: vec![ElectoralDistrict::UT],
             candidates: vec![],
+            list_submitter_id: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
@@ -410,6 +435,7 @@ mod tests {
             id: CandidateListId::new(),
             electoral_districts: vec![ElectoralDistrict::OV],
             candidates: vec![],
+            list_submitter_id: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         };
@@ -628,7 +654,9 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn get_full_candidate_list_returns_none_for_missing_list(pool: PgPool) -> Result<(), AppError> {
+    async fn get_full_candidate_list_returns_none_for_missing_list(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let missing = FullCandidateList::get(&store, CandidateListId::new()).await?;
         assert!(missing.is_none());

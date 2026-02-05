@@ -1,8 +1,9 @@
 use crate::{
-    AppError, AppStore,
-    AppEvent,
-    id_newtype,
-    political_groups::{AuthorisedAgent, AuthorisedAgentId, ListSubmitter, ListSubmitterId},
+    AppError, AppEvent, AppStore, id_newtype,
+    political_groups::{
+        AuthorisedAgent, AuthorisedAgentId, ListSubmitter, ListSubmitterId, SubstituteSubmitter,
+        SubstituteSubmitterId,
+    },
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -40,7 +41,7 @@ impl PoliticalGroup {
             return Err(AppError::NotFound("Political group not found.".to_string()));
         }
 
-        Ok(store.get_list_submitters()?)
+        store.get_list_submitters()
     }
 
     pub fn list_authorised_agents(
@@ -52,7 +53,19 @@ impl PoliticalGroup {
             return Err(AppError::NotFound("Political group not found.".to_string()));
         }
 
-        Ok(store.get_authorised_agents()?)
+        store.get_authorised_agents()
+    }
+
+    pub fn list_substitute_submitters(
+        store: &AppStore,
+        political_group_id: PoliticalGroupId,
+    ) -> Result<Vec<SubstituteSubmitter>, AppError> {
+        let political_group = PoliticalGroup::get_single(store)?;
+        if political_group.map(|group| group.id) != Some(political_group_id) {
+            return Err(AppError::NotFound("Political group not found.".to_string()));
+        }
+
+        store.get_substitute_submitters()
     }
 
     pub fn get_authorised_agent(
@@ -82,6 +95,21 @@ impl PoliticalGroup {
 
         store
             .get_list_submitter(submitter_id)?
+            .ok_or(AppError::GenericNotFound)
+    }
+
+    pub fn get_substitute_submitter(
+        store: &AppStore,
+        political_group_id: PoliticalGroupId,
+        submitter_id: SubstituteSubmitterId,
+    ) -> Result<SubstituteSubmitter, AppError> {
+        let political_group = PoliticalGroup::get_single(store)?;
+        if political_group.map(|group| group.id) != Some(political_group_id) {
+            return Err(AppError::NotFound("Political group not found.".to_string()));
+        }
+
+        store
+            .get_substitute_submitter(submitter_id)?
             .ok_or(AppError::GenericNotFound)
     }
 

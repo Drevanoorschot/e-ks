@@ -7,9 +7,8 @@ use axum_extra::extract::Form;
 use chrono::Utc;
 
 use crate::{
-    AppError, AppStore, Context, HtmlTemplate,
+    AppError, AppEvent, AppStore, Context, HtmlTemplate,
     candidate_lists::{CandidateList, FullCandidateList, pages::CreateCandidatePath},
-    AppEvent,
     filters,
     form::{FormData, Validate},
     persons::{COUNTRY_CODES, PersonForm},
@@ -74,12 +73,12 @@ pub async fn create_person_candidate_list(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::PgPool;
     use axum::{
         http::{StatusCode, header},
         response::IntoResponse,
     };
     use axum_extra::extract::Form;
+    use sqlx::PgPool;
 
     use crate::{
         AppStore, Context,
@@ -115,7 +114,9 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn create_person_candidate_list_persists_and_redirects(pool: PgPool) -> Result<(), AppError> {
+    async fn create_person_candidate_list_persists_and_redirects(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
@@ -157,7 +158,9 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn create_person_candidate_list_invalid_form_renders_template(pool: PgPool) -> Result<(), AppError> {
+    async fn create_person_candidate_list_invalid_form_renders_template(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);

@@ -127,6 +127,7 @@ mod tests {
             id: CandidateListId::new(),
             electoral_districts: vec![ElectoralDistrict::UT],
             candidates: vec![],
+            list_submitter_id: None,
             created_at: creation_date,
             updated_at: creation_date,
         };
@@ -169,7 +170,7 @@ mod tests {
             vec![ElectoralDistrict::DR],
             updated_list.electoral_districts
         );
-        assert!((candidate_list.created_at - Utc::now()).abs() < Duration::seconds(10));
+        assert!(Utc::now() - candidate_list.updated_at < Duration::seconds(10));
         // we don't know the exact update date
         // best we can do is to check it at least got updated (i.e. not equal to creation_date)
         assert_ne!(candidate_list.created_at, updated_list.updated_at);
@@ -178,13 +179,16 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn update_candidate_list_invalid_form_renders_template(pool: PgPool) -> Result<(), AppError> {
+    async fn update_candidate_list_invalid_form_renders_template(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let creation_date = DateTime::from_timestamp(0, 0).unwrap();
         let candidate_list = CandidateList {
             id: CandidateListId::new(),
-            electoral_districts: vec![ElectoralDistrict::UT],
             candidates: vec![],
+            electoral_districts: vec![ElectoralDistrict::UT],
+            list_submitter_id: None,
             created_at: creation_date,
             updated_at: creation_date,
         };

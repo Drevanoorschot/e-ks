@@ -75,15 +75,23 @@ pub async fn create_candidate_list(
         }
         Ok(candidate_list) => {
             let candidate_list = candidate_list.create(&store).await?;
-            Ok(Redirect::to(&candidate_list.view_path()).into_response())
+            Ok(Redirect::to(&candidate_list.edit_list_submitter_path()).into_response())
         }
     }
 }
 
+#[derive(Template)]
+#[template(path = "candidate_lists/create.html")]
+struct CandidateListCreateSubmitterTemplate {
+    candidate_lists: Vec<CandidateListSummary>,
+    total_persons: i64,
+    form: FormData<CandidateListForm>,
+}
+
 #[cfg(test)]
 mod test {
-    use std::collections::BTreeSet;
     use sqlx::PgPool;
+    use std::collections::BTreeSet;
 
     use super::*;
     use axum::{
@@ -143,13 +151,15 @@ mod test {
 
         let lists = CandidateListSummary::get(&store)?;
         assert_eq!(lists.len(), 1);
-        assert_eq!(location, lists[0].list.view_path());
+        assert_eq!(location, lists[0].list.edit_list_submitter_path());
 
         Ok(())
     }
 
     #[sqlx::test]
-    async fn create_candidate_list_invalid_form_renders_template(pool: PgPool) -> Result<(), AppError> {
+    async fn create_candidate_list_invalid_form_renders_template(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let form = CandidateListForm {
             electoral_districts: vec![ElectoralDistrict::UT],

@@ -44,9 +44,7 @@ mod tests {
     };
 
     #[sqlx::test]
-    async fn delete_list_submitter_removes_and_redirects(
-        pool: PgPool,
-    ) -> Result<(), AppError> {
+    async fn delete_list_submitter_removes_and_redirects(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);

@@ -52,8 +52,7 @@ mod tests {
     use tower::ServiceExt;
 
     use crate::{
-        AppState,
-        AppEvent,
+        AppEvent, AppState,
         persons::PersonId,
         test_utils::{response_body_string, sample_person_with_last_name},
     };

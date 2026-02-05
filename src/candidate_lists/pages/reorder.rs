@@ -28,9 +28,8 @@ mod tests {
     use sqlx::PgPool;
 
     use crate::{
-        AppStore,
+        AppEvent, AppStore,
         candidate_lists::{CandidateListId, FullCandidateList},
-        AppEvent,
         persons::PersonId,
         test_utils::{sample_candidate_list, sample_person_with_last_name},
     };
