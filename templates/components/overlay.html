@@ -1,4 +1,4 @@
-{% extends "list_submitters/list_submitters.html" %}
+{% extends "layout.html" %}
 
 {% block body_class %}overlay-open{% endblock %}
 
@@ -7,12 +7,9 @@
 {% block overlay_start %}<div class="overlay">{% endblock %}
   <header>
     <h2>
-      {% block overlay_title %}
-        <span class="person-badge"></span>
-        {{ person.display_name() }}
-      {% endblock %}
+      {% block overlay_title %}{% endblock %}
     </h2>
-    <a href="{{ ListSubmitter::list_path() }}" class="close-overlay" aria-label="{{ "action.close"|trans }}">
+    <a href="{% block close_action %}/{% endblock %}" class="close-overlay" aria-label="{{ "action.close"|trans }}">
       <span>{{ "action.close"|trans }}</span>
     </a>
   </header>

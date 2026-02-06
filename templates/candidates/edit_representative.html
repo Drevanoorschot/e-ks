@@ -1,4 +1,11 @@
-{% extends "candidates/components/overlay.html" %}
+{% extends "components/overlay.html" %}
+
+{% block overlay_title %}
+  <span class="position-badge">{{ candidate.position }}</span>
+  {{ candidate.person.display_name() }}
+{% endblock %}
+
+{% block close_action %}{{ full_list.list.view_path() }}{% endblock %}
 
 {% block overlay_start %}
 <form method="post" action="{{ candidate.edit_representative_path() }}" class="overlay">

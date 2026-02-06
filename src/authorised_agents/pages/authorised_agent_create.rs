@@ -11,28 +11,20 @@ use crate::{
     authorised_agents::{AuthorisedAgent, AuthorisedAgentForm},
     filters,
     form::{FormData, Validate},
-    list_submitters::ListSubmitter,
-    political_groups::PoliticalGroup,
-    substitute_list_submitters::SubstituteSubmitter,
 };
 
 #[derive(Template)]
 #[template(path = "authorised_agents/authorised_agent_create.html")]
 struct AuthorisedAgentCreateTemplate {
-    authorised_agents: Vec<AuthorisedAgent>,
     form: FormData<AuthorisedAgentForm>,
 }
 
 pub async fn new_authorised_agent_form(
     _: AuthorisedAgentNewPath,
     context: Context,
-    State(store): State<AppStore>,
 ) -> Result<impl IntoResponse, AppError> {
-    let authorised_agents = store.get_authorised_agents()?;
-
     Ok(HtmlTemplate(
         AuthorisedAgentCreateTemplate {
-            authorised_agents,
             form: FormData::new(&context.csrf_tokens),
         },
         context,
@@ -45,12 +37,9 @@ pub async fn create_authorised_agent(
     State(store): State<AppStore>,
     Form(form): Form<AuthorisedAgentForm>,
 ) -> Result<Response, AppError> {
-    let authorised_agents = store.get_authorised_agents()?;
-
     match form.validate_create(&context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
             AuthorisedAgentCreateTemplate {
-                authorised_agents,
                 form: form_data,
             },
             context,
@@ -90,7 +79,6 @@ mod tests {
         let response = new_authorised_agent_form(
             AuthorisedAgentNewPath {},
             Context::new_test_without_db(),
-            State(store),
         )
         .await
         .unwrap()

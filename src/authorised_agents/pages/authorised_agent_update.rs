@@ -10,9 +10,6 @@ use crate::{
     authorised_agents::{AuthorisedAgent, AuthorisedAgentForm},
     filters,
     form::{FormData, Validate},
-    list_submitters::ListSubmitter,
-    political_groups::PoliticalGroup,
-    substitute_list_submitters::SubstituteSubmitter,
 };
 
 use super::AuthorisedAgentEditPath;

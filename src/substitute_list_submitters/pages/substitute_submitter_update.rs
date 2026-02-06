@@ -7,11 +7,8 @@ use axum_extra::extract::Form;
 
 use crate::{
     AppError, AppStore, Context, HtmlTemplate,
-    authorised_agents::AuthorisedAgent,
     filters,
     form::{FormData, Validate},
-    list_submitters::ListSubmitter,
-    political_groups::PoliticalGroup,
     substitute_list_submitters::{SubstituteSubmitter, SubstituteSubmitterForm},
 };
 

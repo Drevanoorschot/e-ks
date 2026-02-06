@@ -9,7 +9,7 @@ use crate::{
     AppError, AppResponse, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     persons::{
-        COUNTRY_CODES, Person, PersonForm, PersonPagination, PersonSort, pages::EditPersonPath,
+        COUNTRY_CODES, Person, PersonForm, PersonPagination, pages::EditPersonPath,
     },
 };
 

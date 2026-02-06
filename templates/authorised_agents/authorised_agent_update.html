@@ -1,4 +1,6 @@
-{% extends "authorised_agents/components/authorised_agent_overlay.html" %}
+{% extends "components/overlay.html" %}
+
+{% block close_action %}{{ AuthorisedAgent::list_path() }}{% endblock %}
 
 {% block overlay_title %}{{ "political_group.edit_authorised_agent"|trans }}{% endblock %}
 

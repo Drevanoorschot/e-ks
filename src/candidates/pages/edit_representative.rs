@@ -7,7 +7,7 @@ use axum_extra::extract::Form;
 
 use crate::{
     AppError, AppResponse, AppStore, Context, HtmlTemplate,
-    candidate_lists::{CandidateList, FullCandidateList},
+    candidate_lists::FullCandidateList,
     candidates::Candidate,
     filters,
     form::{FormData, Validate},
