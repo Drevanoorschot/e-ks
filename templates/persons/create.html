@@ -1,46 +1,35 @@
 {% extends "persons/components/overlay.html" %}
-
 {% block overlay_title %}{{ "person.form.create.title"|trans }}{% endblock %}
 {% block overlay_start %}<form method="post" action="{{ Person::new_path() }}" class="overlay">{% endblock %}
-{% block overlay_end %}</form>{% endblock %}
-
+  {% block overlay_end %}</form>{% endblock %}
 {% block overlay_content %}
-<div class="overlay-content steps">
-  <div class="steps-nav">
-    <ul>
-      <li>
-        <a href="{{ Person::new_path() }}" class="active">
-          {{ "person.personal_details"|trans }}
-        </a>
-      </li>
-      <li>
-        <a class="disabled" disabled>
-          {{ "person.correspondence_address"|trans }}
-        </a>
-      </li>
-      <li>
-        <a class="disabled" disabled>
-          {{ "person.representative"|trans }}
-        </a>
-      </li>
-    </ul>
+  <div class="overlay-content steps">
+    <div class="steps-nav">
+      <ul>
+        <li>
+          <a href="{{ Person::new_path() }}" class="active">{{ "person.personal_details"|trans }}</a>
+        </li>
+        <li>
+          <a class="disabled" disabled>{{ "person.correspondence_address"|trans }}</a>
+        </li>
+        <li>
+          <a class="disabled" disabled>{{ "person.representative"|trans }}</a>
+        </li>
+      </ul>
+    </div>
+    <div class="form">
+      <fieldset>
+        <legend>
+          <h2>{{ "person.form.create.title"|trans }}</h2>
+        </legend>
+        {% let should_warn = false %}
+        {% include "persons/components/form.html" %}
+      </fieldset>
+    </div>
   </div>
-  <div class="form">
-    <fieldset>
-      <legend>
-        <h2>{{ "person.form.create.title"|trans }}</h2>
-      </legend>
-      {% let should_warn = false %}
-      {% include "persons/components/form.html" %}
-    </fieldset>
-  </div>
-</div>
 {% endblock %}
-
 {% block overlay_footer %}
-<footer>
-  <button type="submit" class="button">
-    {{ "action.save_and_continue"|trans }}
-  </button>
-</footer>
+  <footer>
+    <button type="submit" class="button">{{ "action.save_and_continue"|trans }}</button>
+  </footer>
 {% endblock %}

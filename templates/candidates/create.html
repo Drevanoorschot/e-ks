@@ -1,12 +1,11 @@
 {% extends "candidates/components/overlay.html" %}
-
 {% block overlay_start %}
-<form method="post" action="{{ full_list.list.new_candidate_path() }}" class="overlay">
-{% endblock %}
-{% block overlay_end %}</form>{% endblock %}
-
+  <form method="post"
+        action="{{ full_list.list.new_candidate_path() }}"
+        class="overlay">
+  {% endblock %}
+  {% block overlay_end %}</form>{% endblock %}
 {% block overlay_title %}{{ "person.actions.add"|trans }}{% endblock %}
-
 {% block overlay_content %}
   <div class="overlay-content steps">
     {% include "candidates/components/create_steps.html" %}
@@ -21,11 +20,8 @@
     </div>
   </div>
 {% endblock %}
-
 {% block overlay_footer %}
-<footer>
-  <button type="submit" class="button">
-    {{ "action.save_and_continue"|trans }}
-  </button>
-</footer>
+  <footer>
+    <button type="submit" class="button">{{ "action.save_and_continue"|trans }}</button>
+  </footer>
 {% endblock %}
