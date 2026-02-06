@@ -52,10 +52,8 @@ impl AppStore {
         .fetch_all(&mut **tx)
         .await?;
 
-        let mut data = self
-            .data
-            .write()
-            .map_err(|_| AppError::InternalServerError)?;
+        let mut data = self.data.write();
+
         for event in missing {
             let app_event: AppEvent =
                 serde_json::from_value(event.payload).map_err(|_| AppError::InternalServerError)?;
@@ -127,10 +125,7 @@ impl AppStore {
 
         tx.commit().await?;
 
-        let mut data = self
-            .data
-            .write()
-            .map_err(|_| AppError::InternalServerError)?;
+        let mut data = self.data.write();
         AppStore::apply(&event, &mut data);
         data.last_event_id = next_id;
 

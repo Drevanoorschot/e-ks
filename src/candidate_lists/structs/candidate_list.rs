@@ -6,10 +6,11 @@ use sqlx::types::chrono::Utc;
 
 use crate::{
     AppError, AppEvent, AppStore, ElectionConfig, ElectoralDistrict,
-    candidate_lists::{Candidate, FullCandidateList},
+    candidate_lists::FullCandidateList,
+    candidates::Candidate,
     id_newtype,
+    list_submitters::ListSubmitterId,
     persons::{Person, PersonId},
-    political_groups::ListSubmitterId,
 };
 
 id_newtype!(pub struct CandidateListId);
@@ -37,13 +38,6 @@ impl CandidateList {
         self.electoral_districts.len() == election.electoral_districts().len()
     }
 
-    pub fn get(
-        store: &AppStore,
-        list_id: CandidateListId,
-    ) -> Result<Option<CandidateList>, AppError> {
-        store.get_candidate_list(list_id)
-    }
-
     pub fn used_districts(
         store: &AppStore,
         exclude_list_ids: Vec<CandidateListId>,
@@ -69,9 +63,7 @@ impl CandidateList {
         list_id: CandidateListId,
         person_ids: &[PersonId],
     ) -> Result<FullCandidateList, AppError> {
-        let Some(mut list) = store.get_candidate_list(list_id)? else {
-            return Err(AppError::NotFound("candidate list not found".to_string()));
-        };
+        let mut list = store.get_candidate_list(list_id)?;
 
         CandidateList::ensure_persons_exist(store, person_ids)?;
 
@@ -90,9 +82,7 @@ impl CandidateList {
         list_id: CandidateListId,
         person_id: PersonId,
     ) -> Result<(), AppError> {
-        let Some(mut list) = store.get_candidate_list(list_id)? else {
-            return Err(AppError::NotFound("candidate list not found".to_string()));
-        };
+        let mut list = store.get_candidate_list(list_id)?;
 
         CandidateList::ensure_persons_exist(store, &[person_id])?;
 
@@ -127,9 +117,7 @@ impl CandidateList {
         list_id: CandidateListId,
         person_id: PersonId,
     ) -> Result<(), AppError> {
-        let Some(mut list) = store.get_candidate_list(list_id)? else {
-            return Err(AppError::NotFound("candidate list not found".to_string()));
-        };
+        let mut list = store.get_candidate_list(list_id)?;
 
         if !list.candidates.contains(&person_id) {
             return Err(AppError::NotFound(
@@ -149,9 +137,7 @@ impl CandidateList {
         list_id: CandidateListId,
         person_id: PersonId,
     ) -> Result<Candidate, AppError> {
-        let Some(list) = store.get_candidate_list(list_id)? else {
-            return Err(AppError::NotFound("candidate list not found".to_string()));
-        };
+        let list = store.get_candidate_list(list_id)?;
 
         let position = list
             .candidates
@@ -160,9 +146,7 @@ impl CandidateList {
             .map(|index| index + 1)
             .ok_or_else(|| AppError::NotFound("candidate not found on list".to_string()))?;
 
-        let person = store
-            .get_person(person_id)?
-            .ok_or(AppError::GenericNotFound)?;
+        let person = store.get_person(person_id)?;
 
         Ok(Candidate {
             list_id,
@@ -176,9 +160,6 @@ impl CandidateList {
         list_id: CandidateListId,
     ) -> Result<Vec<Person>, AppError> {
         let list = store.get_candidate_list(list_id)?;
-        let Some(list) = list else {
-            return Err(AppError::NotFound("candidate list not found".to_string()));
-        };
 
         let existing: BTreeMap<PersonId, ()> =
             list.candidates.into_iter().map(|id| (id, ())).collect();
@@ -190,72 +171,34 @@ impl CandidateList {
             .collect())
     }
 
-    pub async fn create(&self, store: &AppStore) -> Result<CandidateList, AppError> {
-        let now = Utc::now();
-        let list = CandidateList {
-            created_at: now,
-            updated_at: now,
-            ..self.clone()
-        };
-
+    pub async fn create(&self, store: &AppStore) -> Result<(), AppError> {
         store
-            .update(AppEvent::CreateCandidateList(list.clone()))
-            .await?;
-
-        Ok(list)
+            .update(AppEvent::CreateCandidateList(self.clone()))
+            .await
     }
 
-    pub async fn update(&self, store: &AppStore) -> Result<CandidateList, AppError> {
-        let existing = store
-            .get_candidate_list(self.id)?
-            .ok_or(AppError::GenericNotFound)?;
-
-        let updated = CandidateList {
-            electoral_districts: self.electoral_districts.clone(),
-            candidates: existing.candidates,
-            created_at: existing.created_at,
-            updated_at: Utc::now(),
-            ..existing
-        };
-
+    pub async fn update(&self, store: &AppStore) -> Result<(), AppError> {
         store
-            .update(AppEvent::UpdateCandidateList(updated.clone()))
-            .await?;
-
-        Ok(updated)
+            .update(AppEvent::UpdateCandidateList(self.clone()))
+            .await
     }
 
-    pub async fn update_list_submitter(&self, store: &AppStore) -> Result<CandidateList, AppError> {
-        let existing = store
-            .get_candidate_list(self.id)?
-            .ok_or(AppError::GenericNotFound)?;
-
-        let updated = CandidateList {
-            id: existing.id,
-            electoral_districts: existing.electoral_districts,
-            candidates: existing.candidates,
-            list_submitter_id: self.list_submitter_id,
-            created_at: existing.created_at,
-            updated_at: Utc::now(),
-        };
-
+    pub async fn update_list_submitter(&self, store: &AppStore) -> Result<(), AppError> {
         store
-            .update(AppEvent::UpdateCandidateList(updated.clone()))
-            .await?;
-
-        Ok(updated)
+            .update(AppEvent::UpdateCandidateList(CandidateList {
+                list_submitter_id: self.list_submitter_id,
+                updated_at: Utc::now(),
+                ..self.clone()
+            }))
+            .await
     }
 
     pub async fn delete(&self, store: &AppStore) -> Result<(), AppError> {
-        store.update(AppEvent::DeleteCandidateList(self.id)).await?;
-
-        Ok(())
+        store.update(AppEvent::DeleteCandidateList(self.id)).await
     }
 
     pub async fn delete_by_id(store: &AppStore, list_id: CandidateListId) -> Result<(), AppError> {
-        store.update(AppEvent::DeleteCandidateList(list_id)).await?;
-
-        Ok(())
+        store.update(AppEvent::DeleteCandidateList(list_id)).await
     }
 
     pub(crate) fn build_full_candidate_list(
@@ -267,9 +210,7 @@ impl CandidateList {
             .iter()
             .enumerate()
             .map(|(index, person_id)| {
-                let person = store
-                    .get_person(*person_id)?
-                    .ok_or(AppError::GenericNotFound)?;
+                let person = store.get_person(*person_id)?;
                 Ok(Candidate {
                     list_id: list.id,
                     position: index + 1,
@@ -352,7 +293,9 @@ mod tests {
             updated_at: Utc::now(),
         };
 
-        list.create(store).await
+        list.create(store).await?;
+
+        Ok(list)
     }
 
     #[sqlx::test]
@@ -458,7 +401,7 @@ mod tests {
 
         list.create(&store).await?;
 
-        let loaded = CandidateList::get(&store, list.id)?.expect("candidate list");
+        let loaded = store.get_candidate_list(list.id)?;
 
         assert_eq!(loaded.id, list.id);
 
@@ -472,16 +415,16 @@ mod tests {
 
         list.create(&store).await?;
 
-        let updated = CandidateList {
+        let updated_list = CandidateList {
             electoral_districts: vec![ElectoralDistrict::DR, ElectoralDistrict::OV],
             ..list.clone()
-        }
-        .update(&store)
-        .await?;
+        };
 
-        assert_eq!(updated.id, list.id);
+        updated_list.update(&store).await?;
+
+        assert_eq!(updated_list.id, list.id);
         assert_eq!(
-            updated.electoral_districts,
+            updated_list.electoral_districts,
             vec![ElectoralDistrict::DR, ElectoralDistrict::OV]
         );
 
@@ -601,7 +544,7 @@ mod tests {
 
         // verify
         let lists = CandidateListSummary::get(&store)?;
-        let list_b_from_db = FullCandidateList::get(&store, list_b.id).await?.unwrap();
+        let list_b_from_db = FullCandidateList::get(&store, list_b.id).unwrap();
         // one list remains
         assert_eq!(1, lists.len());
         // the correct list got deleted
@@ -632,9 +575,7 @@ mod tests {
             .await?;
         CandidateList::update_order(&store, list_id, &[person_a.id, person_b.id]).await?;
 
-        let detail = FullCandidateList::get(&store, list_id)
-            .await?
-            .expect("candidate list");
+        let detail = FullCandidateList::get(&store, list_id).expect("candidate list");
         assert_eq!(2, detail.candidates.len());
         assert_eq!(person_a.id, detail.candidates[0].person.id);
         assert_eq!(person_b.id, detail.candidates[1].person.id);
@@ -648,7 +589,7 @@ mod tests {
         let err = CandidateList::update_order(&store, CandidateListId::new(), &[])
             .await
             .unwrap_err();
-        assert!(matches!(err, AppError::NotFound(_)));
+        assert!(matches!(err, AppError::GenericNotFound));
 
         Ok(())
     }
@@ -658,8 +599,8 @@ mod tests {
         pool: PgPool,
     ) -> Result<(), AppError> {
         let store = AppStore::new(pool);
-        let missing = FullCandidateList::get(&store, CandidateListId::new()).await?;
-        assert!(missing.is_none());
+        let missing = FullCandidateList::get(&store, CandidateListId::new());
+        assert!(missing.is_err());
 
         Ok(())
     }
@@ -683,9 +624,7 @@ mod tests {
         CandidateList::append_candidate(&store, list_id, person_a.id).await?;
         CandidateList::append_candidate(&store, list_id, person_b.id).await?;
 
-        let detail = FullCandidateList::get(&store, list_id)
-            .await?
-            .expect("candidate list");
+        let detail = FullCandidateList::get(&store, list_id).expect("candidate list");
 
         assert_eq!(detail.candidates.len(), 2);
         assert_eq!(detail.candidates[0].person.id, person_a.id);
@@ -702,7 +641,7 @@ mod tests {
         let err = CandidateList::append_candidate(&store, CandidateListId::new(), PersonId::new())
             .await
             .unwrap_err();
-        assert!(matches!(err, AppError::NotFound(_)));
+        assert!(matches!(err, AppError::GenericNotFound));
 
         Ok(())
     }
@@ -727,9 +666,7 @@ mod tests {
 
         CandidateList::remove_candidate_from_all(&store, person_a.id).await?;
 
-        let detail = FullCandidateList::get(&store, list_id)
-            .await?
-            .expect("candidate list");
+        let detail = FullCandidateList::get(&store, list_id).expect("candidate list");
         assert_eq!(detail.candidates.len(), 1);
         assert_eq!(detail.candidates[0].person.id, person_b.id);
 

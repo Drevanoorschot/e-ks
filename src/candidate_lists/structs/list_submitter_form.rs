@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use validate::Validate;
 
-use crate::{TokenValue, candidate_lists::CandidateList, political_groups::ListSubmitterId};
+use crate::{TokenValue, candidate_lists::CandidateList, list_submitters::ListSubmitterId};
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug, Validate)]
 #[validate(target = "CandidateList")]

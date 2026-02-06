@@ -1,21 +1,18 @@
 use crate::{
     AppError,
+    authorised_agents::{AuthorisedAgent, AuthorisedAgentId},
     candidate_lists::{CandidateList, CandidateListId},
+    list_submitters::{ListSubmitter, ListSubmitterId},
     persons::{Person, PersonId},
-    political_groups::{
-        AuthorisedAgent, AuthorisedAgentId, ListSubmitter, ListSubmitterId, PoliticalGroup,
-        SubstituteSubmitter, SubstituteSubmitterId,
-    },
+    political_groups::PoliticalGroup,
+    substitute_list_submitters::{SubstituteSubmitter, SubstituteSubmitterId},
 };
 
 use super::AppStore;
 
 impl AppStore {
     pub fn get_candidate_lists(&self) -> Result<Vec<CandidateList>, AppError> {
-        let data = self
-            .data
-            .read()
-            .map_err(|_| AppError::InternalServerError)?;
+        let data = self.data.read();
 
         let mut lists: Vec<CandidateList> = data.candidate_lists.values().cloned().collect();
 
@@ -25,124 +22,97 @@ impl AppStore {
     }
 
     pub fn get_political_group(&self) -> Result<PoliticalGroup, AppError> {
-        let data = self
-            .data
-            .read()
-            .map_err(|_| AppError::InternalServerError)?;
+        let data = self.data.read();
 
         Ok(data.political_group.clone())
     }
 
     pub fn get_persons(&self) -> Result<Vec<Person>, AppError> {
-        let data = self
-            .data
-            .read()
-            .map_err(|_| AppError::InternalServerError)?;
+        let data = self.data.read();
 
         Ok(data.persons.values().cloned().collect())
     }
 
     pub fn get_authorised_agents(&self) -> Result<Vec<AuthorisedAgent>, AppError> {
-        let data = self
-            .data
-            .read()
-            .map_err(|_| AppError::InternalServerError)?;
+        let data = self.data.read();
 
         Ok(data.authorised_agents.values().cloned().collect())
     }
 
     pub fn get_list_submitters(&self) -> Result<Vec<ListSubmitter>, AppError> {
-        let data = self
-            .data
-            .read()
-            .map_err(|_| AppError::InternalServerError)?;
+        let data = self.data.read();
 
         Ok(data.list_submitters.values().cloned().collect())
     }
 
     pub fn get_substitute_submitters(&self) -> Result<Vec<SubstituteSubmitter>, AppError> {
-        let data = self
-            .data
-            .read()
-            .map_err(|_| AppError::InternalServerError)?;
+        let data = self.data.read();
 
         Ok(data.substitute_submitters.values().cloned().collect())
     }
 
     pub fn get_person_count(&self) -> Result<usize, AppError> {
-        let data = self
-            .data
-            .read()
-            .map_err(|_| AppError::InternalServerError)?;
+        let data = self.data.read();
 
         Ok(data.persons.len())
     }
 
-    pub fn get_candidate_list(
-        &self,
-        list_id: CandidateListId,
-    ) -> Result<Option<CandidateList>, AppError> {
-        let data = self
-            .data
-            .read()
-            .map_err(|_| AppError::InternalServerError)?;
+    pub fn get_candidate_list(&self, list_id: CandidateListId) -> Result<CandidateList, AppError> {
+        let data = self.data.read();
 
-        Ok(data.candidate_lists.get(&list_id).cloned())
+        match data.candidate_lists.get(&list_id) {
+            Some(list) => Ok(list.clone()),
+            None => Err(AppError::GenericNotFound),
+        }
     }
 
-    pub fn get_person(&self, person_id: PersonId) -> Result<Option<Person>, AppError> {
-        let data = self
-            .data
-            .read()
-            .map_err(|_| AppError::InternalServerError)?;
+    pub fn get_person(&self, person_id: PersonId) -> Result<Person, AppError> {
+        let data = self.data.read();
 
-        Ok(data.persons.get(&person_id).cloned())
+        match data.persons.get(&person_id) {
+            Some(person) => Ok(person.clone()),
+            None => Err(AppError::GenericNotFound),
+        }
     }
 
     pub fn get_authorised_agent(
         &self,
         authorised_agent_id: AuthorisedAgentId,
-    ) -> Result<Option<AuthorisedAgent>, AppError> {
-        let data = self
-            .data
-            .read()
-            .map_err(|_| AppError::InternalServerError)?;
+    ) -> Result<AuthorisedAgent, AppError> {
+        let data = self.data.read();
 
-        Ok(data.authorised_agents.get(&authorised_agent_id).cloned())
+        match data.authorised_agents.get(&authorised_agent_id) {
+            Some(agent) => Ok(agent.clone()),
+            None => Err(AppError::GenericNotFound),
+        }
     }
 
     pub fn get_list_submitter(
         &self,
         list_submitter_id: ListSubmitterId,
-    ) -> Result<Option<ListSubmitter>, AppError> {
-        let data = self
-            .data
-            .read()
-            .map_err(|_| AppError::InternalServerError)?;
+    ) -> Result<ListSubmitter, AppError> {
+        let data = self.data.read();
 
-        Ok(data.list_submitters.get(&list_submitter_id).cloned())
+        match data.list_submitters.get(&list_submitter_id) {
+            Some(submitter) => Ok(submitter.clone()),
+            None => Err(AppError::GenericNotFound),
+        }
     }
 
     pub fn get_substitute_submitter(
         &self,
         substitute_submitter_id: SubstituteSubmitterId,
-    ) -> Result<Option<SubstituteSubmitter>, AppError> {
-        let data = self
-            .data
-            .read()
-            .map_err(|_| AppError::InternalServerError)?;
+    ) -> Result<SubstituteSubmitter, AppError> {
+        let data = self.data.read();
 
-        Ok(data
-            .substitute_submitters
-            .get(&substitute_submitter_id)
-            .cloned())
+        match data.substitute_submitters.get(&substitute_submitter_id) {
+            Some(submitter) => Ok(submitter.clone()),
+            None => Err(AppError::GenericNotFound),
+        }
     }
 
     pub fn get_last_event_id(&self) -> Result<usize, AppError> {
-        let data = self
-            .data
-            .read()
-            .map_err(|_| AppError::InternalServerError)?;
+        let data = self.data.read();
 
         Ok(data.last_event_id)
     }

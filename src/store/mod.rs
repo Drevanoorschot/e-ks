@@ -1,16 +1,13 @@
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    sync::{Arc, RwLock},
-};
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{
+    authorised_agents::{AuthorisedAgent, AuthorisedAgentId},
     candidate_lists::{CandidateList, CandidateListId},
+    list_submitters::{ListSubmitter, ListSubmitterId},
     persons::{Person, PersonId},
-    political_groups::{
-        AuthorisedAgent, AuthorisedAgentId, ListSubmitter, ListSubmitterId, PoliticalGroup,
-        SubstituteSubmitter, SubstituteSubmitterId,
-    },
+    political_groups::PoliticalGroup,
+    substitute_list_submitters::{SubstituteSubmitter, SubstituteSubmitterId},
 };
 
 mod database;
@@ -35,7 +32,7 @@ pub struct AppStoreData {
 #[derive(Clone)]
 pub struct AppStore {
     pub pool: sqlx::PgPool,
-    data: Arc<RwLock<AppStoreData>>,
+    data: Arc<parking_lot::RwLock<AppStoreData>>,
 }
 
 impl AppStore {

@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    authorised_agents::{AuthorisedAgent, AuthorisedAgentId},
     candidate_lists::{CandidateList, CandidateListId},
+    list_submitters::{ListSubmitter, ListSubmitterId},
     persons::{Person, PersonId},
-    political_groups::{
-        AuthorisedAgent, AuthorisedAgentId, ListSubmitter, ListSubmitterId, PoliticalGroup,
-        SubstituteSubmitter, SubstituteSubmitterId,
-    },
+    political_groups::PoliticalGroup,
+    substitute_list_submitters::{SubstituteSubmitter, SubstituteSubmitterId},
 };
 
 #[derive(Debug, Serialize, Deserialize)]

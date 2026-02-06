@@ -129,46 +129,16 @@ impl Person {
             && self.is_representative_complete()
     }
 
-    pub async fn create(&self, store: &AppStore) -> Result<Person, AppError> {
-        let now = Utc::now();
-        let person = Person {
-            created_at: now,
-            updated_at: now,
-            ..self.clone()
-        };
-
-        store.update(AppEvent::CreatePerson(person.clone())).await?;
-
-        Ok(person)
+    pub async fn create(&self, store: &AppStore) -> Result<(), AppError> {
+        store.update(AppEvent::CreatePerson(self.clone())).await
     }
 
-    pub async fn update(&self, store: &AppStore) -> Result<Person, AppError> {
-        let existing = store
-            .get_person(self.id)?
-            .ok_or(AppError::GenericNotFound)?;
-
-        let updated = Person {
-            locality: existing.locality,
-            postal_code: existing.postal_code,
-            house_number: existing.house_number,
-            house_number_addition: existing.house_number_addition,
-            street_name: existing.street_name,
-            created_at: existing.created_at,
-            updated_at: Utc::now(),
-            ..self.clone()
-        };
-
-        store
-            .update(AppEvent::UpdatePerson(updated.clone()))
-            .await?;
-
-        Ok(updated)
+    pub async fn update(&self, store: &AppStore) -> Result<(), AppError> {
+        store.update(AppEvent::UpdatePerson(self.clone())).await
     }
 
-    pub async fn update_address(&self, store: &AppStore) -> Result<Person, AppError> {
-        let existing = store
-            .get_person(self.id)?
-            .ok_or(AppError::GenericNotFound)?;
+    pub async fn update_address(&self, store: &AppStore) -> Result<(), AppError> {
+        let existing = store.get_person(self.id)?;
 
         let updated = Person {
             locality: self.locality.clone(),
@@ -180,23 +150,15 @@ impl Person {
             ..existing
         };
 
-        store
-            .update(AppEvent::UpdatePerson(updated.clone()))
-            .await?;
-
-        Ok(updated)
+        store.update(AppEvent::UpdatePerson(updated.clone())).await
     }
 
     pub async fn delete(&self, store: &AppStore) -> Result<(), AppError> {
-        store.update(AppEvent::DeletePerson(self.id)).await?;
-
-        Ok(())
+        store.update(AppEvent::DeletePerson(self.id)).await
     }
 
     pub async fn delete_by_id(store: &AppStore, person_id: PersonId) -> Result<(), AppError> {
-        store.update(AppEvent::DeletePerson(person_id)).await?;
-
-        Ok(())
+        store.update(AppEvent::DeletePerson(person_id)).await
     }
 
     pub fn list(
@@ -316,7 +278,7 @@ mod tests {
 
         person.create(&store).await?;
 
-        let loaded = store.get_person(id)?.expect("person");
+        let loaded = store.get_person(id)?;
         assert_eq!(loaded.id, id);
         assert_eq!(loaded.last_name, "Jansen");
 
@@ -334,7 +296,7 @@ mod tests {
         person.last_name = "Updated".to_string();
         person.update(&store).await?;
 
-        let updated = store.get_person(id)?.expect("person");
+        let updated = store.get_person(id)?;
         assert_eq!(updated.last_name, "Updated");
 
         Ok(())
@@ -349,8 +311,8 @@ mod tests {
         person.create(&store).await?;
         person.delete(&store).await?;
 
-        let missing = store.get_person(id)?;
-        assert!(missing.is_none());
+        let missing = store.get_person(id);
+        assert!(missing.is_err());
 
         Ok(())
     }
@@ -371,7 +333,7 @@ mod tests {
 
         person.update_address(&store).await?;
 
-        let updated = store.get_person(id)?.expect("person");
+        let updated = store.get_person(id)?;
         assert_eq!(updated.locality, Some("Nieuwegein".to_string()));
         assert_eq!(updated.postal_code, Some("9999 ZZ".to_string()));
         assert_eq!(updated.house_number, Some("99".to_string()));

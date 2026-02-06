@@ -69,8 +69,8 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, Person::list_path());
 
-        let found = store.get_person(person_id)?;
-        assert!(found.is_none());
+        let found = store.get_person(person_id);
+        assert!(found.is_err());
 
         Ok(())
     }

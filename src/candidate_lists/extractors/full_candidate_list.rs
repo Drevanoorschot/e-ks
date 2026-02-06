@@ -21,14 +21,9 @@ where
         let Path(CandidateListPathParams { list_id }) =
             Path::<CandidateListPathParams>::from_request_parts(parts, state).await?;
 
-        let full_list =
-            FullCandidateList::get(&store, list_id)
-                .await?
-                .ok_or(AppError::NotFound(trans!(
-                    "candidate_list.not_found",
-                    context.locale,
-                    list_id
-                )))?;
+        let full_list = FullCandidateList::get(&store, list_id).map_err(|_| {
+            AppError::NotFound(trans!("candidate_list.not_found", context.locale, list_id))
+        })?;
 
         Ok(full_list)
     }
@@ -137,8 +132,6 @@ mod tests {
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
         let body = response_body_string(response).await;
         let expected = trans!("candidate_list.not_found", Locale::En, list_id);
-
-        dbg!(&body);
 
         assert!(body.contains(&expected));
     }

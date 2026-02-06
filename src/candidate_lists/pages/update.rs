@@ -70,7 +70,7 @@ pub async fn update_candidate_list(
         )
         .into_response()),
         Ok(candidate_list) => {
-            let candidate_list = candidate_list.update(&store).await?;
+            candidate_list.update(&store).await?;
             Ok(Redirect::to(&candidate_list.view_path()).into_response())
         }
     }
@@ -122,16 +122,12 @@ mod tests {
         let store = AppStore::new(pool);
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
-        let creation_date = DateTime::from_timestamp(0, 0).unwrap();
         let candidate_list = CandidateList {
-            id: CandidateListId::new(),
             electoral_districts: vec![ElectoralDistrict::UT],
-            candidates: vec![],
-            list_submitter_id: None,
-            created_at: creation_date,
-            updated_at: creation_date,
+            updated_at: Utc::now(),
+            ..Default::default()
         };
-        let candidate_list = candidate_list.create(&store).await?;
+        candidate_list.create(&store).await?;
 
         let form = CandidateListForm {
             electoral_districts: vec![ElectoralDistrict::DR],
@@ -170,7 +166,9 @@ mod tests {
             vec![ElectoralDistrict::DR],
             updated_list.electoral_districts
         );
+
         assert!(Utc::now() - candidate_list.updated_at < Duration::seconds(10));
+
         // we don't know the exact update date
         // best we can do is to check it at least got updated (i.e. not equal to creation_date)
         assert_ne!(candidate_list.created_at, updated_list.updated_at);

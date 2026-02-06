@@ -181,7 +181,7 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, Person::list_path());
 
-        let updated = store.get_person(person_id)?.expect("updated person");
+        let updated = store.get_person(person_id)?;
         assert_eq!(updated.representative_last_name, Some("Smit".to_string()));
 
         Ok(())

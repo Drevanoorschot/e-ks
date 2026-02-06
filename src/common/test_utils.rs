@@ -3,12 +3,13 @@ use http_body_util::BodyExt;
 
 use crate::{
     ElectoralDistrict, TokenValue,
+    authorised_agents::{AuthorisedAgent, AuthorisedAgentForm, AuthorisedAgentId},
     candidate_lists::{CandidateList, CandidateListId},
+    list_submitters::{ListSubmitter, ListSubmitterForm, ListSubmitterId},
     persons::{AddressForm, Gender, Person, PersonForm, PersonId, RepresentativeForm},
-    political_groups::{
-        AuthorisedAgent, AuthorisedAgentForm, AuthorisedAgentId, ListSubmitter, ListSubmitterForm,
-        ListSubmitterId, PoliticalGroup, PoliticalGroupForm, PoliticalGroupId, SubstituteSubmitter,
-        SubstituteSubmitterForm, SubstituteSubmitterId,
+    political_groups::{PoliticalGroup, PoliticalGroupForm, PoliticalGroupId},
+    substitute_list_submitters::{
+        SubstituteSubmitter, SubstituteSubmitterForm, SubstituteSubmitterId,
     },
 };
 

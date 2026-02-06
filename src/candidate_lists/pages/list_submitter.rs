@@ -12,8 +12,8 @@ use crate::{
     },
     filters,
     form::{FormData, Validate},
+    list_submitters::ListSubmitter,
     persons::Person,
-    political_groups::{ListSubmitter, PoliticalGroup},
 };
 
 #[derive(Template)]
@@ -34,7 +34,7 @@ pub async fn edit_list_submitter_form(
 ) -> Result<Response, AppError> {
     let candidate_lists = CandidateListSummary::get(&store)?;
     let total_persons = store.get_person_count()?;
-    let list_submitters = PoliticalGroup::list_submitters(&store, context.political_group.id)?;
+    let list_submitters = store.get_list_submitters()?;
 
     let form = FormData::new_with_data(
         ListSubmitterForm::from(candidate_list.clone()),
@@ -63,7 +63,8 @@ pub async fn update_list_submitter(
 ) -> Result<Response, AppError> {
     let candidate_lists = CandidateListSummary::get(&store)?;
     let total_persons = store.get_person_count()?;
-    let list_submitters = PoliticalGroup::list_submitters(&store, context.political_group.id)?;
+    let list_submitters = store.get_list_submitters()?;
+
     match form.validate_update(&candidate_list, &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
             ListSubmitterUpdateTemplate {
@@ -77,7 +78,7 @@ pub async fn update_list_submitter(
         )
         .into_response()),
         Ok(candidate_list) => {
-            let candidate_list = candidate_list.update_list_submitter(&store).await?;
+            candidate_list.update_list_submitter(&store).await?;
             Ok(Redirect::to(&candidate_list.view_path()).into_response())
         }
     }
@@ -93,7 +94,8 @@ mod tests {
     use crate::{
         AppStore, Context, CsrfTokens, ElectoralDistrict, Locale, TokenValue,
         candidate_lists::CandidateListId,
-        political_groups::{ListSubmitterId, PoliticalGroupId},
+        list_submitters::ListSubmitterId,
+        political_groups::PoliticalGroupId,
         test_utils::{
             response_body_string, sample_candidate_list, sample_list_submitter,
             sample_political_group,
@@ -111,7 +113,7 @@ mod tests {
 
         candidate_list.create(&store).await?;
         political_group.create(&store).await?;
-        list_submitter.create(&store, political_group.id).await?;
+        list_submitter.create(&store).await?;
 
         let context = Context::new(political_group.clone(), Locale::En, CsrfTokens::default());
 
@@ -158,7 +160,7 @@ mod tests {
         let list_submitter = sample_list_submitter(ListSubmitterId::new());
 
         candidate_list.create(&store).await?;
-        list_submitter.create(&store, political_group.id).await?;
+        list_submitter.create(&store).await?;
 
         let form = ListSubmitterForm {
             list_submitter_id: list_submitter.id.to_string(),
@@ -212,7 +214,7 @@ mod tests {
         let list_submitter = sample_list_submitter(ListSubmitterId::new());
 
         candidate_list.create(&store).await?;
-        list_submitter.create(&store, political_group.id).await?;
+        list_submitter.create(&store).await?;
 
         let form = ListSubmitterForm {
             list_submitter_id: list_submitter.id.to_string(),

@@ -48,9 +48,7 @@ mod tests {
         store.update(AppEvent::CreatePerson(person.clone())).await?;
         CandidateList::update_order(&store, list_id, &[person.id]).await?;
 
-        let full_list = FullCandidateList::get(&store, list_id)
-            .await?
-            .expect("candidate list");
+        let full_list = FullCandidateList::get(&store, list_id).expect("candidate list");
 
         let response = view_candidate_list(
             ViewCandidateListPath { list_id },

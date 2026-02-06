@@ -6,11 +6,13 @@ use axum::{
 use axum_extra::extract::Form;
 
 use crate::{
-    AppError, AppStore, Context, HtmlTemplate, filters,
+    AppError, AppStore, Context, HtmlTemplate,
+    authorised_agents::AuthorisedAgent,
+    filters,
     form::{FormData, Validate},
-    political_groups::{
-        AuthorisedAgent, ListSubmitter, PoliticalGroup, PoliticalGroupForm, SubstituteSubmitter,
-    },
+    list_submitters::ListSubmitter,
+    political_groups::{PoliticalGroup, PoliticalGroupForm},
+    substitute_list_submitters::SubstituteSubmitter,
 };
 
 use super::PoliticalGroupEditPath;
@@ -68,7 +70,8 @@ mod tests {
 
     use crate::{
         AppError, AppStore, Context,
-        political_groups::{AuthorisedAgentId, PoliticalGroupId},
+        authorised_agents::AuthorisedAgentId,
+        political_groups::PoliticalGroupId,
         test_utils::{
             response_body_string, sample_authorised_agent, sample_political_group,
             sample_political_group_form,
@@ -109,7 +112,7 @@ mod tests {
         let authorised_agent = sample_authorised_agent(agent_id);
 
         political_group.create(&store).await?;
-        authorised_agent.create(&store, political_group.id).await?;
+        authorised_agent.create(&store).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
@@ -134,7 +137,7 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, PoliticalGroup::edit_path());
 
-        let updated = PoliticalGroup::get_single(&store)?.expect("political group");
+        let updated = store.get_political_group()?;
         assert_eq!(updated.long_list_allowed, Some(true));
         assert_eq!(updated.legal_name, Some("Updated Legal Name".to_string()));
         assert_eq!(
@@ -156,7 +159,7 @@ mod tests {
         let authorised_agent = sample_authorised_agent(agent_id);
 
         political_group.create(&store).await?;
-        authorised_agent.create(&store, political_group.id).await?;
+        authorised_agent.create(&store).await?;
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;

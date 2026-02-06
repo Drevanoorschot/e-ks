@@ -3,25 +3,24 @@ use uuid::Uuid;
 
 use crate::{
     AppError, AppStore,
-    political_groups::{
-        AuthorisedAgent, AuthorisedAgentId, ListSubmitter, ListSubmitterId, PoliticalGroup,
-        PoliticalGroupId, SubstituteSubmitter, SubstituteSubmitterId,
-    },
+    authorised_agents::{AuthorisedAgent, AuthorisedAgentId},
+    list_submitters::{ListSubmitter, ListSubmitterId},
+    political_groups::{PoliticalGroup, PoliticalGroupId},
+    substitute_list_submitters::{SubstituteSubmitter, SubstituteSubmitterId},
 };
 
 pub async fn load(store: &AppStore) -> Result<(), AppError> {
     let political_group_id: PoliticalGroupId =
         Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_political_group").into();
 
-    let agent_1_id: AuthorisedAgentId =
+    let agent_id: AuthorisedAgentId =
         Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_authorised_agent_1").into();
-    let agent_2_id: AuthorisedAgentId =
-        Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_authorised_agent_2").into();
 
     let submitter_1_id: ListSubmitterId =
         Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_list_submitter_1").into();
     let submitter_2_id: ListSubmitterId =
         Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_list_submitter_2").into();
+
     let substitute_submitter_id: SubstituteSubmitterId =
         Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_substitute_submitter_1").into();
 
@@ -34,28 +33,17 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
         updated_at: Utc::now(),
     };
 
-    let _political_group = political_group.create(store).await?;
+    political_group.update(store).await?;
 
     AuthorisedAgent {
-        id: agent_1_id,
+        id: agent_id,
         last_name: "Jansen".to_string(),
         last_name_prefix: Some("de".to_string()),
         initials: "A.B.".to_string(),
         created_at: Utc::now(),
         updated_at: Utc::now(),
     }
-    .create(store, political_group_id)
-    .await?;
-
-    AuthorisedAgent {
-        id: agent_2_id,
-        last_name: "Visser".to_string(),
-        last_name_prefix: None,
-        initials: "C.D.".to_string(),
-        created_at: Utc::now(),
-        updated_at: Utc::now(),
-    }
-    .create(store, political_group_id)
+    .create(store)
     .await?;
 
     ListSubmitter {
@@ -71,7 +59,7 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
         created_at: Utc::now(),
         updated_at: Utc::now(),
     }
-    .create(store, political_group_id)
+    .create(store)
     .await?;
 
     ListSubmitter {
@@ -87,7 +75,7 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
         created_at: Utc::now(),
         updated_at: Utc::now(),
     }
-    .create(store, political_group_id)
+    .create(store)
     .await?;
 
     SubstituteSubmitter {
@@ -103,7 +91,7 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
         created_at: Utc::now(),
         updated_at: Utc::now(),
     }
-    .create(store, political_group_id)
+    .create(store)
     .await?;
 
     Ok(())
@@ -119,9 +107,7 @@ mod tests {
         let store = AppStore::new(pool);
         load(&store).await.unwrap();
 
-        let group = store.get_political_group().unwrap();
-
-        let list_submitters = PoliticalGroup::list_submitters(&store, group.id).unwrap();
+        let list_submitters = store.get_list_submitters().unwrap();
         assert_eq!(list_submitters.len(), 2);
     }
 }

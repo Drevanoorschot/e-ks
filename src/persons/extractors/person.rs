@@ -30,12 +30,8 @@ where
             Path::<PersonPathParams>::from_request_parts(parts, state).await?;
 
         let person = store
-            .get_person(person_id)?
-            .ok_or(AppError::NotFound(trans!(
-                "person.not_found",
-                locale,
-                person_id
-            )))?;
+            .get_person(person_id)
+            .map_err(|_| AppError::NotFound(trans!("person.not_found", locale, person_id)))?;
 
         Ok(person)
     }

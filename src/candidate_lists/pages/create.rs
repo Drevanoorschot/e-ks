@@ -74,7 +74,7 @@ pub async fn create_candidate_list(
             .into_response())
         }
         Ok(candidate_list) => {
-            let candidate_list = candidate_list.create(&store).await?;
+            candidate_list.create(&store).await?;
             Ok(Redirect::to(&candidate_list.edit_list_submitter_path()).into_response())
         }
     }

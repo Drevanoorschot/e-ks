@@ -48,18 +48,6 @@ pub struct CandidateListReorderPath {
 }
 
 #[derive(TypedPath, Deserialize)]
-#[typed_path("/candidate-lists/{list_id}/add", rejection(AppError))]
-pub struct AddCandidatePath {
-    pub list_id: CandidateListId,
-}
-
-#[derive(TypedPath, Deserialize)]
-#[typed_path("/candidate-lists/{list_id}/new", rejection(AppError))]
-pub struct CreateCandidatePath {
-    pub list_id: CandidateListId,
-}
-
-#[derive(TypedPath, Deserialize)]
 #[typed_path("/candidate-lists/{list_id}/list-submitter", rejection(AppError))]
 pub struct EditListSubmitterPath {
     pub list_id: CandidateListId,
@@ -95,11 +83,11 @@ impl CandidateList {
     }
 
     pub fn add_candidate_path(&self) -> String {
-        AddCandidatePath { list_id: self.id }.to_string()
+        crate::candidates::AddCandidatePath { list_id: self.id }.to_string()
     }
 
     pub fn new_candidate_path(&self) -> String {
-        CreateCandidatePath { list_id: self.id }.to_string()
+        crate::candidates::CreateCandidatePath { list_id: self.id }.to_string()
     }
 }
 

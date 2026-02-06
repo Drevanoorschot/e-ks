@@ -1,7 +1,11 @@
+mod authorised_agents;
 /// Application specific modules
 mod candidate_lists;
+mod candidates;
+mod list_submitters;
 mod persons;
 mod political_groups;
+mod substitute_list_submitters;
 
 /// Generic modules
 mod common;

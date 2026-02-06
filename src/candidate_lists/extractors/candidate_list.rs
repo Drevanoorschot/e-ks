@@ -21,13 +21,9 @@ where
         let Path(CandidateListPathParams { list_id }) =
             Path::<CandidateListPathParams>::from_request_parts(parts, state).await?;
 
-        let candidate_list = store
-            .get_candidate_list(list_id)?
-            .ok_or(AppError::NotFound(trans!(
-                "candidate_list.not_found",
-                context.locale,
-                list_id
-            )))?;
+        let candidate_list = store.get_candidate_list(list_id).map_err(|_| {
+            AppError::NotFound(trans!("candidate_list.not_found", context.locale, list_id))
+        })?;
 
         Ok(candidate_list)
     }

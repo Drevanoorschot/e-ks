@@ -146,7 +146,7 @@ mod tests {
 
         assert_eq!(location, Person::list_path());
 
-        let updated = store.get_person(person_id)?.expect("updated person");
+        let updated = store.get_person(person_id)?;
         assert_eq!(updated.locality, Some("Juinen".to_string()));
 
         Ok(())
@@ -218,7 +218,7 @@ mod tests {
         .unwrap();
 
         // The international address should be removed because `is_dutch` is true
-        let updated = store.get_person(person_id)?.expect("updated person");
+        let updated = store.get_person(person_id)?;
         assert_eq!(updated.locality, Some("Juinen".to_string()));
         assert_eq!(updated.postal_code, Some("1234AB".to_string()));
         assert_eq!(updated.house_number, Some("10".to_string()));

@@ -140,7 +140,7 @@ mod tests {
             .expect("location header value");
         assert!(location.ends_with("/persons"));
 
-        let updated = store.get_person(person_id)?.expect("updated person");
+        let updated = store.get_person(person_id)?;
         assert_eq!(updated.last_name, "Updated");
 
         Ok(())

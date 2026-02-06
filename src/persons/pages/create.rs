@@ -54,7 +54,7 @@ pub async fn create_person(
         )
         .into_response()),
         Ok(person) => {
-            let person = person.create(&store).await?;
+            person.create(&store).await?;
 
             Ok(Redirect::to(&person.after_create_path()).into_response())
         }

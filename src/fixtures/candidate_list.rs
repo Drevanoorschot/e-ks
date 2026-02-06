@@ -38,7 +38,7 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
         updated_at: Utc::now(),
     };
 
-    let candidate_list = candidate_list.create(store).await?;
+    candidate_list.create(store).await?;
 
     // Persist the ordered set of persons to ensure deterministic candidate positions.
     CandidateList::update_order(store, candidate_list.id, &person_ids).await?;
