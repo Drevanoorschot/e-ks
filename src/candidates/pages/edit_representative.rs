@@ -88,7 +88,7 @@ mod tests {
 
     use crate::{
         AppError, AppStore, Context,
-        candidate_lists::CandidateListId,
+        candidate_lists::{CandidateList, CandidateListId},
         persons::PersonId,
         test_utils::{
             extract_csrf_token, response_body_string, sample_candidate_list, sample_person,

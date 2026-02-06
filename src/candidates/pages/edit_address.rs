@@ -90,7 +90,7 @@ mod tests {
 
     use crate::{
         AppEvent, AppStore, Context,
-        candidate_lists::CandidateListId,
+        candidate_lists::{CandidateList, CandidateListId},
         persons::PersonId,
         test_utils::{
             response_body_string, sample_address_form, sample_candidate_list,

@@ -6,8 +6,7 @@ use axum::{
 use axum_extra::extract::Form;
 
 use crate::{
-    AppError, AppStore, Context, HtmlTemplate,
-    filters,
+    AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     substitute_list_submitters::{SubstituteSubmitter, SubstituteSubmitterForm},
 };
@@ -17,19 +16,15 @@ use super::SubstituteSubmitterEditPath;
 #[derive(Template)]
 #[template(path = "substitute_list_submitters/substitute_submitter_update.html")]
 struct SubstituteSubmitterUpdateTemplate {
-    substitute_submitters: Vec<SubstituteSubmitter>,
     substitute_submitter: SubstituteSubmitter,
     form: FormData<SubstituteSubmitterForm>,
 }
 
 pub async fn edit_substitute_submitter(
-    SubstituteSubmitterEditPath { sub_submitter_id }: SubstituteSubmitterEditPath,
+    _: SubstituteSubmitterEditPath,
     context: Context,
-    State(store): State<AppStore>,
+    substitute_submitter: SubstituteSubmitter,
 ) -> Result<Response, AppError> {
-    let substitute_submitter = store.get_substitute_submitter(sub_submitter_id)?;
-    let substitute_submitters = store.get_substitute_submitters()?;
-
     Ok(HtmlTemplate(
         SubstituteSubmitterUpdateTemplate {
             form: FormData::new_with_data(
@@ -37,7 +32,6 @@ pub async fn edit_substitute_submitter(
                 &context.csrf_tokens,
             ),
             substitute_submitter,
-            substitute_submitters,
         },
         context,
     )
@@ -45,20 +39,17 @@ pub async fn edit_substitute_submitter(
 }
 
 pub async fn update_substitute_submitter(
-    SubstituteSubmitterEditPath { sub_submitter_id }: SubstituteSubmitterEditPath,
+    _: SubstituteSubmitterEditPath,
     context: Context,
+    substitute_submitter: SubstituteSubmitter,
     State(store): State<AppStore>,
     Form(form): Form<SubstituteSubmitterForm>,
 ) -> Result<Response, AppError> {
-    let substitute_submitter = store.get_substitute_submitter(sub_submitter_id)?;
-    let substitute_submitters = store.get_substitute_submitters()?;
-
     match form.validate_update(&substitute_submitter, &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
             SubstituteSubmitterUpdateTemplate {
                 substitute_submitter,
                 form: form_data,
-                substitute_submitters,
             },
             context,
         )
@@ -106,7 +97,7 @@ mod tests {
         let response = edit_substitute_submitter(
             SubstituteSubmitterEditPath { sub_submitter_id },
             Context::new_test_without_db(),
-            State(store),
+            substitute_submitter.clone(),
         )
         .await
         .unwrap()
@@ -140,6 +131,7 @@ mod tests {
         let response = update_substitute_submitter(
             SubstituteSubmitterEditPath { sub_submitter_id },
             context,
+            substitute_submitter.clone(),
             State(store.clone()),
             Form(form),
         )
@@ -182,6 +174,7 @@ mod tests {
         let response = update_substitute_submitter(
             SubstituteSubmitterEditPath { sub_submitter_id },
             context,
+            substitute_submitter.clone(),
             State(store),
             Form(form),
         )

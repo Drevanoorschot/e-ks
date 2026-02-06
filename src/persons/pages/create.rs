@@ -8,28 +8,23 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
-    persons::{
-        COUNTRY_CODES, Person, PersonForm, PersonPagination, pages::PersonsNewPath,
-    },
+    persons::{COUNTRY_CODES, Person, PersonForm, pages::PersonsNewPath},
 };
 
 #[derive(Template)]
 #[template(path = "persons/create.html")]
 struct PersonCreateTemplate {
     form: FormData<PersonForm>,
-    person_pagination: PersonPagination,
     countries: &'static [&'static str],
 }
 
 pub async fn new_person_form(
     _: PersonsNewPath,
     context: Context,
-    person_pagination: PersonPagination,
 ) -> Result<impl IntoResponse, AppError> {
     Ok(HtmlTemplate(
         PersonCreateTemplate {
             form: FormData::new(&context.csrf_tokens),
-            person_pagination,
             countries: &COUNTRY_CODES,
         },
         context,
@@ -40,14 +35,12 @@ pub async fn create_person(
     _: PersonsNewPath,
     context: Context,
     State(store): State<AppStore>,
-    person_pagination: PersonPagination,
     Form(form): Form<PersonForm>,
 ) -> Result<Response, AppError> {
     match form.validate_create(&context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
             PersonCreateTemplate {
                 form: form_data,
-                person_pagination,
                 countries: &COUNTRY_CODES,
             },
             context,
@@ -80,7 +73,7 @@ mod tests {
     async fn new_person_form_renders_csrf_field() {
         let context = Context::new_test_without_db();
 
-        let response = new_person_form(PersonsNewPath {}, context, PersonPagination::empty())
+        let response = new_person_form(PersonsNewPath {}, context)
             .await
             .unwrap()
             .into_response();
@@ -99,15 +92,9 @@ mod tests {
         let csrf_token = context.csrf_tokens.issue().value;
         let form = sample_person_form(&csrf_token);
 
-        let response = create_person(
-            PersonsNewPath {},
-            context,
-            State(store.clone()),
-            PersonPagination::empty(),
-            Form(form),
-        )
-        .await
-        .unwrap();
+        let response = create_person(PersonsNewPath {}, context, State(store.clone()), Form(form))
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         let location = response
@@ -132,15 +119,9 @@ mod tests {
         let mut form = sample_person_form(&csrf_token);
         form.last_name = " ".to_string();
 
-        let response = create_person(
-            PersonsNewPath {},
-            context,
-            State(store),
-            PersonPagination::empty(),
-            Form(form),
-        )
-        .await
-        .unwrap();
+        let response = create_person(PersonsNewPath {}, context, State(store), Form(form))
+            .await
+            .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
         let body = response_body_string(response).await;

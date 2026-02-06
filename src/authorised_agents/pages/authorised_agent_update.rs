@@ -17,24 +17,19 @@ use super::AuthorisedAgentEditPath;
 #[derive(Template)]
 #[template(path = "authorised_agents/authorised_agent_update.html")]
 struct AuthorisedAgentUpdateTemplate {
-    authorised_agents: Vec<AuthorisedAgent>,
     authorised_agent: AuthorisedAgent,
     form: FormData<AuthorisedAgentForm>,
 }
 
 pub async fn edit_authorised_agent(
-    AuthorisedAgentEditPath { agent_id }: AuthorisedAgentEditPath,
+    _: AuthorisedAgentEditPath,
     context: Context,
-    State(store): State<AppStore>,
+    authorised_agent: AuthorisedAgent,
 ) -> Result<Response, AppError> {
-    let authorised_agent = store.get_authorised_agent(agent_id)?;
-    let authorised_agents = store.get_authorised_agents()?;
-
     Ok(HtmlTemplate(
         AuthorisedAgentUpdateTemplate {
             form: FormData::new_with_data(authorised_agent.clone().into(), &context.csrf_tokens),
             authorised_agent,
-            authorised_agents,
         },
         context,
     )
@@ -42,20 +37,17 @@ pub async fn edit_authorised_agent(
 }
 
 pub async fn update_authorised_agent(
-    AuthorisedAgentEditPath { agent_id }: AuthorisedAgentEditPath,
+    _: AuthorisedAgentEditPath,
     context: Context,
+    authorised_agent: AuthorisedAgent,
     State(store): State<AppStore>,
     Form(form): Form<AuthorisedAgentForm>,
 ) -> Result<Response, AppError> {
-    let authorised_agent = store.get_authorised_agent(agent_id)?;
-    let authorised_agents = store.get_authorised_agents()?;
-
     match form.validate_update(&authorised_agent, &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
             AuthorisedAgentUpdateTemplate {
                 authorised_agent,
                 form: form_data,
-                authorised_agents,
             },
             context,
         )
@@ -102,7 +94,7 @@ mod tests {
         let response = edit_authorised_agent(
             AuthorisedAgentEditPath { agent_id },
             Context::new_test_without_db(),
-            State(store.clone()),
+            authorised_agent.clone(),
         )
         .await
         .unwrap()
@@ -134,6 +126,7 @@ mod tests {
         let response = update_authorised_agent(
             AuthorisedAgentEditPath { agent_id },
             context,
+            authorised_agent.clone(),
             State(store.clone()),
             Form(form),
         )
@@ -176,6 +169,7 @@ mod tests {
         let response = update_authorised_agent(
             AuthorisedAgentEditPath { agent_id },
             context,
+            authorised_agent.clone(),
             State(store),
             Form(form),
         )

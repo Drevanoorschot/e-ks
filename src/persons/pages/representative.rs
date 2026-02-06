@@ -8,10 +8,7 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppResponse, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
-    persons::{
-        InitialEditQuery, Person, PersonPagination, RepresentativeForm,
-        pages::EditRepresentativePath,
-    },
+    persons::{InitialEditQuery, Person, RepresentativeForm, pages::EditRepresentativePath},
 };
 
 #[derive(Template)]
@@ -20,14 +17,12 @@ struct RepresentativeUpdateTemplate {
     should_warn: bool,
     person: Person,
     form: FormData<RepresentativeForm>,
-    person_pagination: PersonPagination,
 }
 
 pub async fn edit_representative(
     _: EditRepresentativePath,
     context: Context,
     person: Person,
-    person_pagination: PersonPagination,
     Query(query): Query<InitialEditQuery>,
 ) -> AppResponse<impl IntoResponse> {
     Ok(HtmlTemplate(
@@ -38,7 +33,6 @@ pub async fn edit_representative(
                 &context.csrf_tokens,
             ),
             person,
-            person_pagination,
         },
         context,
     ))
@@ -49,7 +43,6 @@ pub async fn update_representative(
     context: Context,
     person: Person,
     State(store): State<AppStore>,
-    person_pagination: PersonPagination,
     Query(query): Query<InitialEditQuery>,
     Form(form): Form<RepresentativeForm>,
 ) -> Result<Response, AppError> {
@@ -59,7 +52,6 @@ pub async fn update_representative(
                 should_warn: query.should_warn(),
                 person,
                 form: form_data,
-                person_pagination,
             },
             context,
         )
@@ -103,7 +95,6 @@ mod tests {
             EditRepresentativePath { person_id },
             Context::new_test_without_db(),
             person,
-            PersonPagination::empty(),
             Query(InitialEditQuery::new()),
         )
         .await
@@ -132,7 +123,6 @@ mod tests {
             EditRepresentativePath { person_id },
             context,
             person,
-            PersonPagination::empty(),
             Query(InitialEditQuery::new()),
         )
         .await
@@ -165,7 +155,6 @@ mod tests {
             context,
             person,
             State(store.clone()),
-            PersonPagination::empty(),
             Query(InitialEditQuery::new()),
             Form(form),
         )
@@ -207,7 +196,6 @@ mod tests {
             context,
             person,
             State(store),
-            PersonPagination::empty(),
             Query(InitialEditQuery::new()),
             Form(form),
         )

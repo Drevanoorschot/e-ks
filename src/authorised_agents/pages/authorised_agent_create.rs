@@ -39,9 +39,7 @@ pub async fn create_authorised_agent(
 ) -> Result<Response, AppError> {
     match form.validate_create(&context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
-            AuthorisedAgentCreateTemplate {
-                form: form_data,
-            },
+            AuthorisedAgentCreateTemplate { form: form_data },
             context,
         )
         .into_response()),
@@ -76,13 +74,11 @@ mod tests {
         let political_group = sample_political_group(group_id);
         political_group.create(&store).await?;
 
-        let response = new_authorised_agent_form(
-            AuthorisedAgentNewPath {},
-            Context::new_test_without_db(),
-        )
-        .await
-        .unwrap()
-        .into_response();
+        let response =
+            new_authorised_agent_form(AuthorisedAgentNewPath {}, Context::new_test_without_db())
+                .await
+                .unwrap()
+                .into_response();
 
         assert_eq!(response.status(), StatusCode::OK);
         let body = response_body_string(response).await;

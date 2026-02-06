@@ -8,10 +8,7 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppResponse, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
-    persons::{
-        AddressForm, InitialEditQuery, Person, PersonPagination,
-        pages::EditPersonAddressPath,
-    },
+    persons::{AddressForm, InitialEditQuery, Person, pages::EditPersonAddressPath},
 };
 
 #[derive(Template)]
@@ -20,14 +17,12 @@ struct PersonAddressUpdateTemplate {
     should_warn: bool,
     person: Person,
     form: FormData<AddressForm>,
-    person_pagination: PersonPagination,
 }
 
 pub async fn edit_person_address(
     _: EditPersonAddressPath,
     context: Context,
     person: Person,
-    person_pagination: PersonPagination,
     Query(query): Query<InitialEditQuery>,
 ) -> AppResponse<impl IntoResponse> {
     Ok(HtmlTemplate(
@@ -35,7 +30,6 @@ pub async fn edit_person_address(
             should_warn: query.should_warn(),
             form: FormData::new_with_data(AddressForm::from(person.clone()), &context.csrf_tokens),
             person,
-            person_pagination,
         },
         context,
     ))
@@ -46,7 +40,6 @@ pub async fn update_person_address(
     context: Context,
     person: Person,
     State(store): State<AppStore>,
-    person_pagination: PersonPagination,
     Query(query): Query<InitialEditQuery>,
     Form(form): Form<AddressForm>,
 ) -> Result<Response, AppError> {
@@ -56,7 +49,6 @@ pub async fn update_person_address(
                 person,
                 should_warn: query.should_warn(),
                 form: form_data,
-                person_pagination,
             },
             context,
         )
@@ -98,7 +90,6 @@ mod tests {
             EditPersonAddressPath { person_id },
             Context::new_test_without_db(),
             person,
-            PersonPagination::empty(),
             Query(InitialEditQuery::new()),
         )
         .await
@@ -129,7 +120,6 @@ mod tests {
             context,
             person,
             State(store.clone()),
-            PersonPagination::empty(),
             Query(InitialEditQuery::new()),
             Form(form),
         )
@@ -172,7 +162,6 @@ mod tests {
             context,
             person,
             State(store),
-            PersonPagination::empty(),
             Query(InitialEditQuery::new()),
             Form(form),
         )
@@ -203,7 +192,6 @@ mod tests {
             context.clone(),
             person.clone(),
             State(store.clone()),
-            PersonPagination::empty(),
             Query(InitialEditQuery::new()),
             Form(AddressForm {
                 locality: "Juinen".to_string(),

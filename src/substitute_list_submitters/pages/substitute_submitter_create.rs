@@ -7,8 +7,7 @@ use axum_extra::extract::Form;
 
 use super::SubstituteSubmitterNewPath;
 use crate::{
-    AppError, AppStore, Context, HtmlTemplate,
-    filters,
+    AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     substitute_list_submitters::{SubstituteSubmitter, SubstituteSubmitterForm},
 };
@@ -16,20 +15,15 @@ use crate::{
 #[derive(Template)]
 #[template(path = "substitute_list_submitters/substitute_submitter_create.html")]
 struct SubstituteSubmitterCreateTemplate {
-    substitute_submitters: Vec<SubstituteSubmitter>,
     form: FormData<SubstituteSubmitterForm>,
 }
 
 pub async fn new_substitute_submitter_form(
     _: SubstituteSubmitterNewPath,
     context: Context,
-    State(store): State<AppStore>,
 ) -> Result<impl IntoResponse, AppError> {
-    let substitute_submitters = store.get_substitute_submitters()?;
-
     Ok(HtmlTemplate(
         SubstituteSubmitterCreateTemplate {
-            substitute_submitters,
             form: FormData::new(&context.csrf_tokens),
         },
         context,
@@ -42,14 +36,9 @@ pub async fn create_substitute_submitter(
     State(store): State<AppStore>,
     Form(form): Form<SubstituteSubmitterForm>,
 ) -> Result<Response, AppError> {
-    let substitute_submitters = store.get_substitute_submitters()?;
-
     match form.validate_create(&context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
-            SubstituteSubmitterCreateTemplate {
-                substitute_submitters,
-                form: form_data,
-            },
+            SubstituteSubmitterCreateTemplate { form: form_data },
             context,
         )
         .into_response()),
@@ -79,16 +68,14 @@ mod tests {
         },
     };
 
-    #[sqlx::test]
-    async fn new_substitute_submitter_form_renders_csrf_field(pool: sqlx::PgPool) {
-        let store = AppStore::new(pool);
+    #[tokio::test]
+    async fn new_substitute_submitter_form_renders_csrf_field() {
         let context = Context::new_test_without_db();
 
-        let response =
-            new_substitute_submitter_form(SubstituteSubmitterNewPath {}, context, State(store))
-                .await
-                .unwrap()
-                .into_response();
+        let response = new_substitute_submitter_form(SubstituteSubmitterNewPath {}, context)
+            .await
+            .unwrap()
+            .into_response();
 
         assert_eq!(response.status(), StatusCode::OK);
         let body = response_body_string(response).await;

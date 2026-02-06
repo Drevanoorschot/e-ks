@@ -8,16 +8,13 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppResponse, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
-    persons::{
-        COUNTRY_CODES, Person, PersonForm, PersonPagination, pages::EditPersonPath,
-    },
+    persons::{COUNTRY_CODES, Person, PersonForm, pages::EditPersonPath},
 };
 
 #[derive(Template)]
 #[template(path = "persons/update.html")]
 struct PersonUpdateTemplate {
     person: Person,
-    person_pagination: PersonPagination,
     form: FormData<PersonForm>,
     countries: &'static [&'static str],
 }
@@ -26,13 +23,11 @@ pub async fn edit_person_form(
     _: EditPersonPath,
     context: Context,
     person: Person,
-    person_pagination: PersonPagination,
 ) -> AppResponse<impl IntoResponse> {
     Ok(HtmlTemplate(
         PersonUpdateTemplate {
             form: FormData::new_with_data(PersonForm::from(person.clone()), &context.csrf_tokens),
             person,
-            person_pagination,
             countries: &COUNTRY_CODES,
         },
         context,
@@ -44,14 +39,12 @@ pub async fn update_person(
     context: Context,
     State(store): State<AppStore>,
     person: Person,
-    person_pagination: PersonPagination,
     Form(form): Form<PersonForm>,
 ) -> Result<Response, AppError> {
     match form.validate_update(&person, &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
             PersonUpdateTemplate {
                 person,
-                person_pagination,
                 form: form_data,
                 countries: &COUNTRY_CODES,
             },
@@ -94,7 +87,6 @@ mod tests {
             EditPersonPath { person_id },
             Context::new_test_without_db(),
             person,
-            PersonPagination::empty(),
         )
         .await
         .unwrap()
@@ -125,7 +117,6 @@ mod tests {
             context,
             State(store.clone()),
             person,
-            PersonPagination::empty(),
             Form(form),
         )
         .await
@@ -164,7 +155,6 @@ mod tests {
             context,
             State(store),
             person,
-            PersonPagination::empty(),
             Form(form),
         )
         .await

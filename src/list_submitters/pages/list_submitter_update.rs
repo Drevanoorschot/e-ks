@@ -6,8 +6,7 @@ use axum::{
 use axum_extra::extract::Form;
 
 use crate::{
-    AppError, AppStore, Context, HtmlTemplate,
-    filters,
+    AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     list_submitters::{ListSubmitter, ListSubmitterForm},
 };
@@ -17,24 +16,19 @@ use super::ListSubmitterEditPath;
 #[derive(Template)]
 #[template(path = "list_submitters/list_submitter_update.html")]
 struct ListSubmitterUpdateTemplate {
-    list_submitters: Vec<ListSubmitter>,
     list_submitter: ListSubmitter,
     form: FormData<ListSubmitterForm>,
 }
 
 pub async fn edit_list_submitter(
-    ListSubmitterEditPath { submitter_id }: ListSubmitterEditPath,
+    _: ListSubmitterEditPath,
     context: Context,
-    State(store): State<AppStore>,
+    list_submitter: ListSubmitter,
 ) -> Result<Response, AppError> {
-    let list_submitter = store.get_list_submitter(submitter_id)?;
-    let list_submitters = store.get_list_submitters()?;
-
     Ok(HtmlTemplate(
         ListSubmitterUpdateTemplate {
             form: FormData::new_with_data(list_submitter.clone().into(), &context.csrf_tokens),
             list_submitter,
-            list_submitters,
         },
         context,
     )
@@ -42,20 +36,17 @@ pub async fn edit_list_submitter(
 }
 
 pub async fn update_list_submitter(
-    ListSubmitterEditPath { submitter_id }: ListSubmitterEditPath,
+    _: ListSubmitterEditPath,
     context: Context,
+    list_submitter: ListSubmitter,
     State(store): State<AppStore>,
     Form(form): Form<ListSubmitterForm>,
 ) -> Result<Response, AppError> {
-    let list_submitter = store.get_list_submitter(submitter_id)?;
-    let list_submitters = store.get_list_submitters()?;
-
     match form.validate_update(&list_submitter, &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
             ListSubmitterUpdateTemplate {
                 list_submitter,
                 form: form_data,
-                list_submitters,
             },
             context,
         )
@@ -102,7 +93,7 @@ mod tests {
         let response = edit_list_submitter(
             ListSubmitterEditPath { submitter_id },
             Context::new_test_without_db(),
-            State(store),
+            list_submitter.clone(),
         )
         .await
         .unwrap()
@@ -134,6 +125,7 @@ mod tests {
         let response = update_list_submitter(
             ListSubmitterEditPath { submitter_id },
             context,
+            list_submitter.clone(),
             State(store.clone()),
             Form(form),
         )
@@ -176,6 +168,7 @@ mod tests {
         let response = update_list_submitter(
             ListSubmitterEditPath { submitter_id },
             context,
+            list_submitter.clone(),
             State(store),
             Form(form),
         )

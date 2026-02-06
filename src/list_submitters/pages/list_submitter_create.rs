@@ -7,8 +7,7 @@ use axum_extra::extract::Form;
 
 use super::ListSubmitterNewPath;
 use crate::{
-    AppError, AppStore, Context, HtmlTemplate,
-    filters,
+    AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
     list_submitters::{ListSubmitter, ListSubmitterForm},
 };
@@ -16,20 +15,15 @@ use crate::{
 #[derive(Template)]
 #[template(path = "list_submitters/list_submitter_create.html")]
 struct ListSubmitterCreateTemplate {
-    list_submitters: Vec<ListSubmitter>,
     form: FormData<ListSubmitterForm>,
 }
 
 pub async fn new_list_submitter_form(
     _: ListSubmitterNewPath,
     context: Context,
-    State(store): State<AppStore>,
 ) -> Result<impl IntoResponse, AppError> {
-    let list_submitters = store.get_list_submitters()?;
-
     Ok(HtmlTemplate(
         ListSubmitterCreateTemplate {
-            list_submitters,
             form: FormData::new(&context.csrf_tokens),
         },
         context,
@@ -42,14 +36,9 @@ pub async fn create_list_submitter(
     State(store): State<AppStore>,
     Form(form): Form<ListSubmitterForm>,
 ) -> Result<Response, AppError> {
-    let list_submitters = store.get_list_submitters()?;
-
     match form.validate_create(&context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
-            ListSubmitterCreateTemplate {
-                list_submitters,
-                form: form_data,
-            },
+            ListSubmitterCreateTemplate { form: form_data },
             context,
         )
         .into_response()),
@@ -78,12 +67,11 @@ mod tests {
         test_utils::{response_body_string, sample_list_submitter_form, sample_political_group},
     };
 
-    #[sqlx::test]
-    async fn new_list_submitter_form_renders_csrf_field(pool: PgPool) {
-        let store = AppStore::new(pool);
+    #[tokio::test]
+    async fn new_list_submitter_form_renders_csrf_field() {
         let context = Context::new_test_without_db();
 
-        let response = new_list_submitter_form(ListSubmitterNewPath {}, context, State(store))
+        let response = new_list_submitter_form(ListSubmitterNewPath {}, context)
             .await
             .unwrap()
             .into_response();
