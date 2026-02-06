@@ -18,6 +18,7 @@ fields:
   electoral_districts: Electoral districts
   list_submitter: Submitter of the list
   position: Position
+  substitute_list_submitters: Substitute list submitters
 form:
   create:
     title: Create candidate list

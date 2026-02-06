@@ -1,18 +1,14 @@
-{% extends "candidate_lists/list.html" %}
+{% extends "components/overlay.html" %}
 
-{% block body_class %}overlay-open{% endblock %}
+{% block close_action %}{{ CandidateList::list_path() }}{% endblock %}
 
-{% block overlay %}
-<div class="overlay-backdrop"></div>
+{% block overlay_title %}{{ "candidate_list.form.create.title"|trans }}{% endblock %}
+
+{% block overlay_start %}
 <form method="post" action="{{ CandidateList::new_path() }}" class="overlay">
-  <header>
-    <h2>
-      {{ "candidate_list.form.create.title"|trans }}
-    </h2>
-    <a href="{{ CandidateList::list_path() }}" class="close-overlay" aria-label="{{ " action.close"|trans }}">
-      <span>{{ "action.close"|trans }}</span>
-    </a>
-  </header>
+{% endblock %}
+
+{% block overlay_content %}
   <div class="overlay-content steps">
     <div class="steps-nav">
       <ul>
@@ -32,10 +28,16 @@
       {% include "candidate_lists/components/districts_form.html" %}
     </div>
   </div>
+{% endblock %}
+
+{% block overlay_footer %}
   <footer>
     <button type="submit" class="button">
-      {{ "action.next"|trans }}
+      {{ "action.save_and_continue"|trans }}
     </button>
   </footer>
+{% endblock %}
+
+{% block overlay_end %}
 </form>
 {% endblock %}

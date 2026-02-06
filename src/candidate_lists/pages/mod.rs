@@ -3,7 +3,7 @@ use axum_extra::routing::{RouterExt, TypedPath};
 use serde::Deserialize;
 
 use crate::{
-    AppError, AppState,
+    AppError, AppState, InitialEditQuery,
     candidate_lists::{CandidateList, CandidateListId},
 };
 
@@ -89,20 +89,27 @@ impl CandidateList {
     pub fn new_candidate_path(&self) -> String {
         crate::candidates::CreateCandidatePath { list_id: self.id }.to_string()
     }
+
+    pub fn after_create_path(&self) -> String {
+        EditListSubmitterPath { list_id: self.id }
+            .with_query_params(InitialEditQuery::default())
+            .to_string()
+    }
 }
 
 pub fn router() -> Router<AppState> {
     Router::new()
         // manage lists
         .typed_get(list::list_candidate_lists)
+        // create a new list
         .typed_get(create::new_candidate_list_form)
         .typed_post(create::create_candidate_list)
-        .typed_get(list_submitter::edit_list_submitter_form)
-        .typed_post(list_submitter::update_list_submitter)
         // manage single list
         .typed_get(view::view_candidate_list)
         .typed_get(update::edit_candidate_list)
         .typed_post(update::update_candidate_list)
+        .typed_get(list_submitter::edit_list_submitter_form)
+        .typed_post(list_submitter::update_list_submitter)
         .typed_post(delete::delete_candidate_list)
         .typed_post(reorder::reorder_candidate_list)
 }

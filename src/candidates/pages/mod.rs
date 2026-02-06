@@ -114,14 +114,14 @@ impl Candidate {
                 list_id: self.list_id,
                 person_id: self.person.id,
             }
-            .with_query_params(InitialEditQuery::new())
+            .with_query_params(InitialEditQuery::default())
             .to_string()
         } else {
             EditRepresentativePath {
                 list_id: self.list_id,
                 person_id: self.person.id,
             }
-            .with_query_params(InitialEditQuery::new())
+            .with_query_params(InitialEditQuery::default())
             .to_string()
         }
     }

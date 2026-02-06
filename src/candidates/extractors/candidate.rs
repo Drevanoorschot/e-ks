@@ -51,7 +51,7 @@ mod tests {
     use tower::ServiceExt;
 
     use crate::{
-        AppEvent, AppState, Locale,
+        AppEvent, AppState,
         candidate_lists::CandidateListId,
         persons::PersonId,
         render_error_pages,
@@ -143,7 +143,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
         let body = response_body_string(response).await;
-        let expected = trans!("person.not_found_in_candidate_list", Locale::En).to_string();
-        assert!(body.contains(&expected));
+        let expected = "Not found";
+        assert!(body.contains(expected));
     }
 }

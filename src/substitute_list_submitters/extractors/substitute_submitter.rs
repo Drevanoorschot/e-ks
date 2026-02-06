@@ -8,7 +8,7 @@ use crate::{
 
 #[derive(Deserialize)]
 struct SubstituteSubmitterPathParams {
-    #[serde(alias = "submitter_id")]
+    #[serde(alias = "sub_submitter_id")]
     submitter_id: SubstituteSubmitterId,
 }
 
@@ -27,8 +27,6 @@ where
         let Path(SubstituteSubmitterPathParams { submitter_id }) =
             Path::<SubstituteSubmitterPathParams>::from_request_parts(parts, state).await?;
 
-        store
-            .get_substitute_submitter(submitter_id)
-            .map_err(|_| AppError::NotFound("Substitute submitter not found.".to_string()))
+        store.get_substitute_submitter(submitter_id)
     }
 }

@@ -1,4 +1,3 @@
-use chrono::Utc;
 use uuid::Uuid;
 
 use crate::{
@@ -32,10 +31,7 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
     let candidate_list = CandidateList {
         id: uuid.into(),
         electoral_districts,
-        candidates: vec![],
-        list_submitter_id: None,
-        created_at: Utc::now(),
-        updated_at: Utc::now(),
+        ..Default::default()
     };
 
     candidate_list.create(store).await?;
@@ -58,7 +54,7 @@ mod tests {
         crate::fixtures::persons::load(&store).await.unwrap();
         load(&store).await.unwrap();
 
-        let lists = CandidateListSummary::get(&store).unwrap();
+        let lists = CandidateListSummary::list(&store).unwrap();
 
         assert_eq!(lists.len(), 1);
         assert_eq!(lists[0].person_count, FIXTURE_CANDIDATE_LIST_SIZE);

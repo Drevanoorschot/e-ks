@@ -95,7 +95,7 @@ mod tests {
             EditRepresentativePath { person_id },
             Context::new_test_without_db(),
             person,
-            Query(InitialEditQuery::new()),
+            Query(InitialEditQuery::default()),
         )
         .await
         .unwrap()
@@ -123,7 +123,7 @@ mod tests {
             EditRepresentativePath { person_id },
             context,
             person,
-            Query(InitialEditQuery::new()),
+            Query(InitialEditQuery::default()),
         )
         .await
         .unwrap()
@@ -155,7 +155,7 @@ mod tests {
             context,
             person,
             State(store.clone()),
-            Query(InitialEditQuery::new()),
+            Query(InitialEditQuery::default()),
             Form(form),
         )
         .await
@@ -196,7 +196,7 @@ mod tests {
             context,
             person,
             State(store),
-            Query(InitialEditQuery::new()),
+            Query(InitialEditQuery::default()),
             Form(form),
         )
         .await

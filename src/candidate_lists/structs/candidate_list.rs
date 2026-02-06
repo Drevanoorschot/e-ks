@@ -11,6 +11,7 @@ use crate::{
     id_newtype,
     list_submitters::ListSubmitterId,
     persons::{Person, PersonId},
+    substitute_list_submitters::SubstituteSubmitterId,
 };
 
 id_newtype!(pub struct CandidateListId);
@@ -21,6 +22,7 @@ pub struct CandidateList {
     pub electoral_districts: Vec<ElectoralDistrict>,
     pub candidates: Vec<PersonId>,
     pub list_submitter_id: Option<ListSubmitterId>,
+    pub substitute_list_submitter_ids: Vec<SubstituteSubmitterId>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -144,7 +146,7 @@ impl CandidateList {
             .iter()
             .position(|id| *id == person_id)
             .map(|index| index + 1)
-            .ok_or_else(|| AppError::NotFound("candidate not found on list".to_string()))?;
+            .ok_or_else(|| AppError::GenericNotFound)?;
 
         let person = store.get_person(person_id)?;
 
@@ -187,6 +189,19 @@ impl CandidateList {
         store
             .update(AppEvent::UpdateCandidateList(CandidateList {
                 list_submitter_id: self.list_submitter_id,
+                updated_at: Utc::now(),
+                ..self.clone()
+            }))
+            .await
+    }
+
+    pub async fn update_substitute_list_submitters(
+        &self,
+        store: &AppStore,
+    ) -> Result<(), AppError> {
+        store
+            .update(AppEvent::UpdateCandidateList(CandidateList {
+                substitute_list_submitter_ids: self.substitute_list_submitter_ids.clone(),
                 updated_at: Utc::now(),
                 ..self.clone()
             }))
@@ -246,16 +261,12 @@ mod tests {
         persons::PersonId,
         test_utils::{sample_candidate_list, sample_person_with_last_name},
     };
-    use sqlx::{PgPool, types::chrono::Utc};
+    use sqlx::PgPool;
 
     fn base_candidate_list(electoral_districts: Vec<ElectoralDistrict>) -> CandidateList {
         CandidateList {
-            id: CandidateListId::new(),
             electoral_districts,
-            candidates: vec![],
-            list_submitter_id: None,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
+            ..Default::default()
         }
     }
 
@@ -285,12 +296,8 @@ mod tests {
         electoral_districts: Vec<ElectoralDistrict>,
     ) -> Result<CandidateList, AppError> {
         let list = CandidateList {
-            id: CandidateListId::new(),
             electoral_districts,
-            candidates: vec![],
-            list_submitter_id: None,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
+            ..Default::default()
         };
 
         list.create(store).await?;
@@ -305,7 +312,7 @@ mod tests {
 
         list.create(&store).await?;
 
-        let lists = CandidateListSummary::get(&store)?;
+        let lists = CandidateListSummary::list(&store)?;
         assert_eq!(1, lists.len());
         assert_eq!(list.id, lists[0].list.id);
         assert_eq!(0, lists[0].person_count);
@@ -326,7 +333,7 @@ mod tests {
         let list3 = insert_list(&store, vec![ElectoralDistrict::OV, ElectoralDistrict::GR]).await?;
 
         // test
-        let lists = CandidateListSummary::get(&store)?;
+        let lists = CandidateListSummary::list(&store)?;
 
         // verification
         assert_eq!(3, lists.len());
@@ -367,23 +374,20 @@ mod tests {
     async fn list_candidate_list_orders_by_created_at(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let list_early = CandidateList {
-            id: CandidateListId::new(),
             electoral_districts: vec![ElectoralDistrict::UT],
-            candidates: vec![],
-            list_submitter_id: None,
             created_at: Utc::now(),
-            updated_at: Utc::now(),
+            ..Default::default()
         };
-        let list_late = CandidateList {
-            id: CandidateListId::new(),
-            electoral_districts: vec![ElectoralDistrict::OV],
-            candidates: vec![],
-            list_submitter_id: None,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-        };
-
         list_early.create(&store).await?;
+
+        // sleep for a second to ensure a different created_at timestamp for the next list
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+        let list_late = CandidateList {
+            electoral_districts: vec![ElectoralDistrict::OV],
+            created_at: Utc::now(),
+            ..Default::default()
+        };
         list_late.create(&store).await?;
 
         let lists = store.get_candidate_lists()?;
@@ -543,7 +547,7 @@ mod tests {
         CandidateList::delete_by_id(&store, list_a.id).await?;
 
         // verify
-        let lists = CandidateListSummary::get(&store)?;
+        let lists = CandidateListSummary::list(&store)?;
         let list_b_from_db = FullCandidateList::get(&store, list_b.id).unwrap();
         // one list remains
         assert_eq!(1, lists.len());

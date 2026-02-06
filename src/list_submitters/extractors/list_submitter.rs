@@ -27,8 +27,6 @@ where
         let Path(ListSubmitterPathParams { submitter_id }) =
             Path::<ListSubmitterPathParams>::from_request_parts(parts, state).await?;
 
-        store
-            .get_list_submitter(submitter_id)
-            .map_err(|_| AppError::NotFound("List submitter not found.".to_string()))
+        store.get_list_submitter(submitter_id)
     }
 }

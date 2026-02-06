@@ -15,8 +15,6 @@ where
     ) -> Result<Self, Self::Rejection> {
         let store = AppStore::from_ref(state);
 
-        store
-            .get_political_group()
-            .map_err(|_| AppError::NotFound("Political group not found.".to_string()))
+        store.get_political_group()
     }
 }

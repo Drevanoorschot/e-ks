@@ -120,7 +120,7 @@ mod tests {
             Context::new_test_without_db(),
             full_list,
             candidate,
-            Query(InitialEditQuery::new()),
+            Query(InitialEditQuery::default()),
         )
         .await?
         .into_response();
@@ -160,7 +160,7 @@ mod tests {
             full_list,
             candidate,
             State(store.clone()),
-            Query(InitialEditQuery::new()),
+            Query(InitialEditQuery::default()),
             Form(form),
         )
         .await?;
@@ -214,7 +214,7 @@ mod tests {
             full_list,
             candidate,
             State(store),
-            Query(InitialEditQuery::new()),
+            Query(InitialEditQuery::default()),
             Form(form),
         )
         .await?

@@ -27,8 +27,6 @@ where
         let Path(AuthorisedAgentPathParams { agent_id }) =
             Path::<AuthorisedAgentPathParams>::from_request_parts(parts, state).await?;
 
-        store
-            .get_authorised_agent(agent_id)
-            .map_err(|_| AppError::NotFound("Authorised agent not found.".to_string()))
+        store.get_authorised_agent(agent_id)
     }
 }

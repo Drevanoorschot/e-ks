@@ -26,6 +26,7 @@ pub use common::{
     constants,
     context::Context,
     election::{ElectionConfig, ElectoralDistrict},
+    initial_edit::InitialEditQuery,
     locale,
     locale::Locale,
     logging, new_type, server,

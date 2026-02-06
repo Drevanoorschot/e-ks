@@ -18,6 +18,7 @@ fields:
   electoral_districts: Kiesdistricten
   list_submitter: Gegevens lijstinleveraar
   position: Positie
+  substitute_list_submitters: Vervangers voor herstel verzuimen
 form:
   create:
     title: Kandidatenlijst aanmaken

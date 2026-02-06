@@ -1,25 +1,21 @@
 use askama::Template;
 use axum::{
-    extract::State,
+    extract::{Query, State},
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::Form;
 
 use crate::{
-    AppError, AppStore, Context, ElectionConfig, HtmlTemplate,
-    candidate_lists::{
-        CandidateList, CandidateListForm, CandidateListSummary, pages::CandidateListsEditPath,
-    },
+    AppError, AppStore, Context, ElectionConfig, HtmlTemplate, InitialEditQuery,
+    candidate_lists::{CandidateList, CandidateListForm, pages::CandidateListsEditPath},
     filters,
     form::{FormData, Validate},
-    persons::Person,
 };
 
 #[derive(Template)]
 #[template(path = "candidate_lists/update.html")]
 struct CandidateListUpdateTemplate {
-    candidate_lists: Vec<CandidateListSummary>,
-    total_persons: usize,
+    should_warn: bool,
     form: FormData<CandidateListForm>,
     candidate_list: CandidateList,
 }
@@ -28,19 +24,15 @@ pub async fn edit_candidate_list(
     _: CandidateListsEditPath,
     context: Context,
     candidate_list: CandidateList,
-    State(store): State<AppStore>,
+    Query(query): Query<InitialEditQuery>,
 ) -> Result<Response, AppError> {
-    let candidate_lists = CandidateListSummary::get(&store)?;
-    let total_persons = store.get_person_count()?;
-
     Ok(HtmlTemplate(
         CandidateListUpdateTemplate {
             form: FormData::new_with_data(
                 CandidateListForm::from(candidate_list.clone()),
                 &context.csrf_tokens,
             ),
-            candidate_lists,
-            total_persons,
+            should_warn: query.should_warn(),
             candidate_list,
         },
         context,
@@ -53,16 +45,13 @@ pub async fn update_candidate_list(
     context: Context,
     candidate_list: CandidateList,
     State(store): State<AppStore>,
+    Query(query): Query<InitialEditQuery>,
     Form(form): Form<CandidateListForm>,
 ) -> Result<Response, AppError> {
-    let candidate_lists = CandidateListSummary::get(&store)?;
-    let total_persons = store.get_person_count()?;
-
     match form.validate_update(&candidate_list, &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
             CandidateListUpdateTemplate {
-                candidate_lists,
-                total_persons,
+                should_warn: query.should_warn(),
                 form: form_data,
                 candidate_list,
             },
@@ -79,14 +68,17 @@ pub async fn update_candidate_list(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::http::{StatusCode, header};
+    use axum::{
+        extract::Query,
+        http::{StatusCode, header},
+    };
     use axum_extra::extract::Form;
     use chrono::{DateTime, Duration, Utc};
     use sqlx::PgPool;
 
     use crate::{
-        AppStore, Context, ElectoralDistrict, TokenValue,
-        candidate_lists::CandidateListId,
+        AppStore, Context, ElectoralDistrict, InitialEditQuery, TokenValue,
+        candidate_lists::{CandidateListId, CandidateListSummary},
         test_utils::{response_body_string, sample_candidate_list},
     };
 
@@ -103,7 +95,7 @@ mod tests {
             },
             Context::new_test_without_db(),
             candidate_list.clone(),
-            State(store),
+            Query(InitialEditQuery::default()),
         )
         .await?;
 
@@ -140,6 +132,7 @@ mod tests {
             context,
             candidate_list.clone(),
             State(store.clone()),
+            Query(InitialEditQuery::default()),
             Form(form),
         )
         .await?;
@@ -154,7 +147,7 @@ mod tests {
             .expect("location header value");
 
         // verify updated candidate list object in database
-        let lists = CandidateListSummary::get(&store)?;
+        let lists = CandidateListSummary::list(&store)?;
         assert_eq!(lists.len(), 1);
 
         let updated_list = &lists[0].list;
@@ -183,12 +176,10 @@ mod tests {
         let store = AppStore::new(pool);
         let creation_date = DateTime::from_timestamp(0, 0).unwrap();
         let candidate_list = CandidateList {
-            id: CandidateListId::new(),
-            candidates: vec![],
             electoral_districts: vec![ElectoralDistrict::UT],
-            list_submitter_id: None,
             created_at: creation_date,
             updated_at: creation_date,
+            ..Default::default()
         };
         candidate_list.create(&store).await?;
 
@@ -203,6 +194,7 @@ mod tests {
             Context::new_test_without_db(),
             candidate_list.clone(),
             State(store.clone()),
+            Query(InitialEditQuery::default()),
             Form(form),
         )
         .await?;
@@ -211,7 +203,7 @@ mod tests {
         let body = response_body_string(response).await;
         assert!(body.contains("Edit candidate list"));
 
-        let lists = CandidateListSummary::get(&store)?;
+        let lists = CandidateListSummary::list(&store)?;
         assert_eq!(lists.len(), 1);
 
         let updated_list = &lists[0].list;

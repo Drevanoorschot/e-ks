@@ -7,19 +7,14 @@ use axum_extra::extract::Form;
 
 use crate::{
     AppError, AppStore, Context, ElectionConfig, HtmlTemplate,
-    candidate_lists::{
-        CandidateList, CandidateListForm, CandidateListSummary, pages::CandidateListNewPath,
-    },
+    candidate_lists::{CandidateList, CandidateListForm, pages::CandidateListNewPath},
     filters,
     form::{FormData, Validate},
-    persons::Person,
 };
 
 #[derive(Template)]
 #[template(path = "candidate_lists/create.html")]
 struct CandidateListCreateTemplate {
-    candidate_lists: Vec<CandidateListSummary>,
-    total_persons: usize,
     form: FormData<CandidateListForm>,
 }
 
@@ -28,8 +23,6 @@ pub async fn new_candidate_list_form(
     context: Context,
     State(store): State<AppStore>,
 ) -> Result<impl IntoResponse, AppError> {
-    let candidate_lists = CandidateListSummary::get(&store)?;
-    let total_persons = store.get_person_count()?;
     let used_districts = CandidateList::used_districts(&store, vec![])?;
     let available_districts = context.election.available_districts(used_districts);
 
@@ -41,15 +34,7 @@ pub async fn new_candidate_list_form(
         &context.csrf_tokens,
     );
 
-    Ok(HtmlTemplate(
-        CandidateListCreateTemplate {
-            candidate_lists,
-            total_persons,
-            form,
-        },
-        context,
-    )
-    .into_response())
+    Ok(HtmlTemplate(CandidateListCreateTemplate { form }, context).into_response())
 }
 
 pub async fn create_candidate_list(
@@ -59,23 +44,15 @@ pub async fn create_candidate_list(
     Form(form): Form<CandidateListForm>,
 ) -> Result<Response, AppError> {
     match form.validate_create(&context.csrf_tokens) {
-        Err(form_data) => {
-            let candidate_lists = CandidateListSummary::get(&store)?;
-            let total_persons = store.get_person_count()?;
-
-            Ok(HtmlTemplate(
-                CandidateListCreateTemplate {
-                    candidate_lists,
-                    total_persons,
-                    form: form_data,
-                },
-                context,
-            )
-            .into_response())
-        }
+        Err(form_data) => Ok(HtmlTemplate(
+            CandidateListCreateTemplate { form: form_data },
+            context,
+        )
+        .into_response()),
         Ok(candidate_list) => {
             candidate_list.create(&store).await?;
-            Ok(Redirect::to(&candidate_list.edit_list_submitter_path()).into_response())
+
+            Ok(Redirect::to(&candidate_list.after_create_path()).into_response())
         }
     }
 }
@@ -83,8 +60,6 @@ pub async fn create_candidate_list(
 #[derive(Template)]
 #[template(path = "candidate_lists/create.html")]
 struct CandidateListCreateSubmitterTemplate {
-    candidate_lists: Vec<CandidateListSummary>,
-    total_persons: i64,
     form: FormData<CandidateListForm>,
 }
 
@@ -101,7 +76,8 @@ mod test {
     use axum_extra::extract::Form;
 
     use crate::{
-        AppStore, Context, ElectoralDistrict, TokenValue, test_utils::response_body_string,
+        AppStore, Context, ElectoralDistrict, TokenValue, candidate_lists::CandidateListSummary,
+        test_utils::response_body_string,
     };
 
     #[sqlx::test]
@@ -149,9 +125,11 @@ mod test {
             .to_str()
             .expect("location header value");
 
-        let lists = CandidateListSummary::get(&store)?;
+        let lists = CandidateListSummary::list(&store)?;
         assert_eq!(lists.len(), 1);
-        assert_eq!(location, lists[0].list.edit_list_submitter_path());
+
+        let expected = lists[0].list.after_create_path();
+        assert_eq!(location, expected);
 
         Ok(())
     }

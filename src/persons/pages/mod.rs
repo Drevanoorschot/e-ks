@@ -1,10 +1,10 @@
 use crate::{
-    AppError, AppState,
+    AppError, AppState, InitialEditQuery,
     persons::{Person, PersonId},
 };
 use axum::Router;
 use axum_extra::routing::{RouterExt, TypedPath};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 mod address;
 mod create;
@@ -12,23 +12,6 @@ mod delete;
 mod list;
 mod representative;
 mod update;
-
-#[derive(Serialize, Deserialize)]
-pub struct InitialEditQuery {
-    initial: Option<bool>,
-}
-
-impl InitialEditQuery {
-    pub fn should_warn(&self) -> bool {
-        !self.initial.unwrap_or(false)
-    }
-
-    pub fn new() -> Self {
-        InitialEditQuery {
-            initial: Some(true),
-        }
-    }
-}
 
 #[derive(TypedPath, Deserialize)]
 #[typed_path("/persons", rejection(AppError))]
@@ -94,11 +77,11 @@ impl Person {
     pub fn after_create_path(&self) -> String {
         if self.is_dutch() {
             EditPersonAddressPath { person_id: self.id }
-                .with_query_params(InitialEditQuery::new())
+                .with_query_params(InitialEditQuery::default())
                 .to_string()
         } else {
             EditRepresentativePath { person_id: self.id }
-                .with_query_params(InitialEditQuery::new())
+                .with_query_params(InitialEditQuery::default())
                 .to_string()
         }
     }

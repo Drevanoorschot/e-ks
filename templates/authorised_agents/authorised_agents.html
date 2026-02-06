@@ -46,11 +46,13 @@
         </tbody>
       </table>
     {% endif %}
-    <p class="mt-lg">
-      <a href="{{ AuthorisedAgent::new_path() }}" class="button secondary icon-plus" type="button">
-        {{ "political_group.add_authorised_agent"|trans }}
-      </a>
-    </p>
+    {% if authorised_agents.len() == 0%}
+      <p class="mt-lg">
+        <a href="{{ AuthorisedAgent::new_path() }}" class="button secondary icon-plus" type="button">
+          {{ "political_group.add_authorised_agent"|trans }}
+        </a>
+      </p>
+    {% endif %}
   </div>
 </div>
 {% endblock %}
