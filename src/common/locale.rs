@@ -1,18 +1,62 @@
 //! Locale detection and formatting helpers for request handling.
 //! Extracted from Accept-Language headers and used by Context and templates.
 
-use std::convert::Infallible;
-
+use crate::{AppError, AppState};
 use axum::{
+    Router,
     extract::FromRequestParts,
     http::{header, request::Parts},
+    response::Redirect,
 };
+use axum_extra::{
+    TypedHeader,
+    extract::{CookieJar, Form, cookie::Cookie},
+    headers,
+    routing::{RouterExt, TypedPath},
+};
+use serde::Deserialize;
+use std::{convert::Infallible, str::FromStr};
 
-#[derive(Default, Clone, Copy, Debug, Eq, PartialEq)]
+static LOCALE_COOKIE_NAME: &str = "LANGUAGE";
+
+#[derive(Default, Deserialize, Clone, Debug)]
+struct LanguageSwitch {
+    lang: Locale,
+}
+
+#[derive(TypedPath)]
+#[typed_path("/language", rejection(AppError))]
+pub struct SwitchLanguagePath;
+
+async fn switch_language(
+    _: SwitchLanguagePath,
+    TypedHeader(referer): TypedHeader<headers::Referer>,
+    mut cookie_jar: CookieJar,
+    Form(form): Form<LanguageSwitch>,
+) -> (CookieJar, Redirect) {
+    cookie_jar = cookie_jar.add(Cookie::new(LOCALE_COOKIE_NAME, form.lang.as_str()));
+
+    (cookie_jar, Redirect::to(&referer.to_string()))
+}
+
+#[derive(Default, Deserialize, Clone, Copy, Debug, Eq, PartialEq)]
+#[serde(rename_all = "lowercase")]
 pub enum Locale {
     En,
     #[default]
     Nl,
+}
+
+impl FromStr for Locale {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "en" => Ok(Locale::En),
+            "nl" => Ok(Locale::Nl),
+            _ => Err("invalid locale"),
+        }
+    }
 }
 
 impl Locale {
@@ -63,6 +107,15 @@ where
     type Rejection = Infallible;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        let cookies = CookieJar::from_request_parts(parts, _state).await?;
+        let cookie: Option<Locale> = cookies
+            .get(LOCALE_COOKIE_NAME)
+            .and_then(|cookie| cookie.value().parse().ok());
+
+        if let Some(locale) = cookie {
+            return Ok(locale);
+        }
+
         let locale = parts
             .headers
             .get(header::ACCEPT_LANGUAGE)
@@ -72,6 +125,10 @@ where
 
         Ok(locale)
     }
+}
+
+pub fn locale_router() -> Router<AppState> {
+    Router::new().typed_post(switch_language)
 }
 
 #[cfg(test)]

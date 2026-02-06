@@ -17,7 +17,11 @@ impl AppStore {
             .read()
             .map_err(|_| AppError::InternalServerError)?;
 
-        Ok(data.candidate_lists.values().cloned().collect())
+        let mut lists: Vec<CandidateList> = data.candidate_lists.values().cloned().collect();
+
+        lists.sort_unstable_by(|a, b| a.created_at.cmp(&b.created_at));
+
+        Ok(lists)
     }
 
     pub fn get_political_group(&self) -> Result<PoliticalGroup, AppError> {
