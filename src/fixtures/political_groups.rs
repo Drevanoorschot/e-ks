@@ -14,15 +14,15 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
         Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_political_group").into();
 
     let agent_id: AuthorisedAgentId =
-        Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_authorised_agent_1").into();
+        Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_authorised_agent").into();
 
-    let submitter_1_id: ListSubmitterId =
-        Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_list_submitter_1").into();
-    let submitter_2_id: ListSubmitterId =
-        Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_list_submitter_2").into();
+    let submitter_id: ListSubmitterId =
+        Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_list_submitter").into();
 
-    let substitute_submitter_id: SubstituteSubmitterId =
+    let substitute_submitter_id_1: SubstituteSubmitterId =
         Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_substitute_submitter_1").into();
+    let substitute_submitter_id_2: SubstituteSubmitterId =
+        Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_substitute_submitter_2").into();
 
     let political_group = PoliticalGroup {
         id: political_group_id,
@@ -47,7 +47,7 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
     .await?;
 
     ListSubmitter {
-        id: submitter_1_id,
+        id: submitter_id,
         last_name: "Bos".to_string(),
         last_name_prefix: None,
         initials: "E.F.".to_string(),
@@ -62,8 +62,8 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
     .create(store)
     .await?;
 
-    ListSubmitter {
-        id: submitter_2_id,
+    SubstituteSubmitter {
+        id: substitute_submitter_id_1,
         last_name: "Smit".to_string(),
         last_name_prefix: Some("van".to_string()),
         initials: "G.H.".to_string(),
@@ -79,7 +79,7 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
     .await?;
 
     SubstituteSubmitter {
-        id: substitute_submitter_id,
+        id: substitute_submitter_id_2,
         last_name: "De Jong".to_string(),
         last_name_prefix: None,
         initials: "I.J.".to_string(),

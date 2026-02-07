@@ -41,7 +41,7 @@
             <td>{{ submitter.locality|display }}</td>
             <td>{{ submitter.postal_code|display }}</td>
             <td>
-              <a href="{{ submitter.edit_path() }}">
+              <a href="{{ submitter.update_path() }}">
                 <span>{{ "action.edit"|trans }}</span>
               </a>
             </td>
@@ -51,7 +51,7 @@
       </table>
       {% endif %}
       <p class="mt-lg">
-        <a href="{{ ListSubmitter::new_path() }}" class="button secondary icon-plus" type="button">
+        <a href="{{ ListSubmitter::create_path() }}" class="button secondary icon-plus" type="button">
           {{ "political_group.add_list_submitter"|trans }}
         </a>
       </p>

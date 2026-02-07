@@ -7,7 +7,7 @@ use axum_extra::extract::Form;
 
 use crate::{
     AppError, AppStore, Context, ElectionConfig, HtmlTemplate, InitialEditQuery,
-    candidate_lists::{CandidateList, CandidateListForm, pages::CandidateListsEditPath},
+    candidate_lists::{CandidateList, CandidateListForm, pages::CandidateListUpdatePath},
     filters,
     form::{FormData, Validate},
 };
@@ -20,8 +20,8 @@ struct CandidateListUpdateTemplate {
     candidate_list: CandidateList,
 }
 
-pub async fn edit_candidate_list(
-    _: CandidateListsEditPath,
+pub async fn update_candidate_list(
+    _: CandidateListUpdatePath,
     context: Context,
     candidate_list: CandidateList,
     Query(query): Query<InitialEditQuery>,
@@ -40,8 +40,8 @@ pub async fn edit_candidate_list(
     .into_response())
 }
 
-pub async fn update_candidate_list(
-    _: CandidateListsEditPath,
+pub async fn update_candidate_list_submit(
+    _: CandidateListUpdatePath,
     context: Context,
     candidate_list: CandidateList,
     State(store): State<AppStore>,
@@ -83,14 +83,14 @@ mod tests {
     };
 
     #[sqlx::test]
-    async fn edit_candidate_list_renders_existing_list(pool: PgPool) -> Result<(), AppError> {
+    async fn update_candidate_list_renders_existing_list(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let candidate_list = sample_candidate_list(CandidateListId::new());
 
         candidate_list.create(&store).await?;
 
-        let response = edit_candidate_list(
-            CandidateListsEditPath {
+        let response = update_candidate_list(
+            CandidateListUpdatePath {
                 list_id: candidate_list.id,
             },
             Context::new_test_without_db(),
@@ -125,8 +125,8 @@ mod tests {
             electoral_districts: vec![ElectoralDistrict::DR],
             csrf_token,
         };
-        let response = update_candidate_list(
-            CandidateListsEditPath {
+        let response = update_candidate_list_submit(
+            CandidateListUpdatePath {
                 list_id: candidate_list.id,
             },
             context,
@@ -187,8 +187,8 @@ mod tests {
             electoral_districts: vec![ElectoralDistrict::DR],
             csrf_token: TokenValue("invalid".to_string()),
         };
-        let response = update_candidate_list(
-            CandidateListsEditPath {
+        let response = update_candidate_list_submit(
+            CandidateListUpdatePath {
                 list_id: candidate_list.id,
             },
             Context::new_test_without_db(),

@@ -1,6 +1,7 @@
 function setupDirtyForms() {
   const forms = document.querySelectorAll("form");
-  let anyDirty = false;
+  const dirtyForms = new Set<HTMLFormElement>();
+  let isSubmitting = false;
 
   forms.forEach((form) => {
     const submitButton: HTMLButtonElement | null = form.querySelector(
@@ -24,21 +25,27 @@ function setupDirtyForms() {
 
     form.addEventListener("input", () => {
       isDirty = true;
-      anyDirty = true;
+      dirtyForms.add(form);
       updateSubmitButtons();
     });
 
     form.addEventListener("change", () => {
       isDirty = true;
-      anyDirty = true;
+      dirtyForms.add(form);
       updateSubmitButtons();
+    });
+
+    form.addEventListener("submit", () => {
+      isDirty = false;
+      dirtyForms.delete(form);
+      isSubmitting = true;
     });
 
     updateSubmitButtons();
   });
 
   window.addEventListener("beforeunload", (event) => {
-    if (anyDirty) {
+    if (dirtyForms.size > 0 && !isSubmitting) {
       event.preventDefault();
     }
   });

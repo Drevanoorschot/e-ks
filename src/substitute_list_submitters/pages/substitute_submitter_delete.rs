@@ -7,10 +7,11 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppStore, Context,
     form::{EmptyForm, Validate},
+    list_submitters::ListSubmitter,
     substitute_list_submitters::SubstituteSubmitter,
 };
 
-use super::{SubstituteSubmitterDeletePath, SubstituteSubmitterEditPath};
+use super::{SubstituteSubmitterDeletePath, SubstituteSubmitterUpdatePath};
 
 pub async fn delete_substitute_submitter(
     SubstituteSubmitterDeletePath { sub_submitter_id }: SubstituteSubmitterDeletePath,
@@ -20,13 +21,13 @@ pub async fn delete_substitute_submitter(
 ) -> Result<Response, AppError> {
     match form.validate_create(&context.csrf_tokens) {
         Err(_) => Ok(
-            Redirect::to(&SubstituteSubmitterEditPath { sub_submitter_id }.to_string())
+            Redirect::to(&SubstituteSubmitterUpdatePath { sub_submitter_id }.to_string())
                 .into_response(),
         ),
         Ok(_) => {
             SubstituteSubmitter::delete_by_id(&store, sub_submitter_id).await?;
 
-            Ok(Redirect::to(&SubstituteSubmitter::list_path()).into_response())
+            Ok(Redirect::to(&ListSubmitter::list_path()).into_response())
         }
     }
 }
@@ -39,7 +40,7 @@ mod tests {
     use crate::{
         AppError, AppStore, Context, TokenValue,
         political_groups::PoliticalGroupId,
-        substitute_list_submitters::{SubstituteSubmitter, SubstituteSubmitterId},
+        substitute_list_submitters::SubstituteSubmitterId,
         test_utils::{sample_political_group, sample_substitute_submitter},
     };
 
@@ -76,7 +77,7 @@ mod tests {
             .expect("location header")
             .to_str()
             .expect("location header value");
-        assert_eq!(location, SubstituteSubmitter::list_path());
+        assert_eq!(location, ListSubmitter::list_path());
 
         let submitters = store.get_substitute_submitters()?;
         assert!(submitters.is_empty());
@@ -118,7 +119,7 @@ mod tests {
             .expect("location header value");
         assert_eq!(
             location,
-            SubstituteSubmitterEditPath { sub_submitter_id }.to_string()
+            SubstituteSubmitterUpdatePath { sub_submitter_id }.to_string()
         );
 
         let submitters = store.get_substitute_submitters()?;

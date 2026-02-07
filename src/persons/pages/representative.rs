@@ -8,19 +8,19 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppResponse, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
-    persons::{InitialEditQuery, Person, RepresentativeForm, pages::EditRepresentativePath},
+    persons::{InitialEditQuery, Person, RepresentativeForm, pages::UpdateRepresentativePath},
 };
 
 #[derive(Template)]
-#[template(path = "persons/representative.html")]
+#[template(path = "persons/update_representative.html")]
 struct RepresentativeUpdateTemplate {
     should_warn: bool,
     person: Person,
     form: FormData<RepresentativeForm>,
 }
 
-pub async fn edit_representative(
-    _: EditRepresentativePath,
+pub async fn update_representative(
+    _: UpdateRepresentativePath,
     context: Context,
     person: Person,
     Query(query): Query<InitialEditQuery>,
@@ -38,8 +38,8 @@ pub async fn edit_representative(
     ))
 }
 
-pub async fn update_representative(
-    _: EditRepresentativePath,
+pub async fn update_representative_submit(
+    _: UpdateRepresentativePath,
     context: Context,
     person: Person,
     State(store): State<AppStore>,
@@ -84,15 +84,15 @@ mod tests {
     };
 
     #[sqlx::test]
-    async fn edit_representative_renders_existing_person(pool: PgPool) -> Result<(), AppError> {
+    async fn update_representative_renders_existing_person(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
         person.create(&store).await?;
 
-        let response = edit_representative(
-            EditRepresentativePath { person_id },
+        let response = update_representative(
+            UpdateRepresentativePath { person_id },
             Context::new_test_without_db(),
             person,
             Query(InitialEditQuery::default()),
@@ -109,7 +109,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn edit_representative_renders_valid_csrf_token(pool: PgPool) -> Result<(), AppError> {
+    async fn update_representative_renders_valid_csrf_token(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let person_id = PersonId::new();
         let person = sample_person(person_id);
@@ -119,8 +119,8 @@ mod tests {
         let context = Context::new_test_without_db();
         let csrf_tokens = context.csrf_tokens.clone();
 
-        let response = edit_representative(
-            EditRepresentativePath { person_id },
+        let response = update_representative(
+            UpdateRepresentativePath { person_id },
             context,
             person,
             Query(InitialEditQuery::default()),
@@ -150,8 +150,8 @@ mod tests {
         let mut form = sample_representative_form(&csrf_token);
         form.representative_last_name = "Smit".to_string();
 
-        let response = update_representative(
-            EditRepresentativePath { person_id },
+        let response = update_representative_submit(
+            UpdateRepresentativePath { person_id },
             context,
             person,
             State(store.clone()),
@@ -191,8 +191,8 @@ mod tests {
         let mut form = sample_representative_form(&csrf_token);
         form.postal_code = "a".to_string();
 
-        let response = update_representative(
-            EditRepresentativePath { person_id },
+        let response = update_representative_submit(
+            UpdateRepresentativePath { person_id },
             context,
             person,
             State(store),

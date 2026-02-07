@@ -5,21 +5,22 @@ use axum::{
 };
 use axum_extra::extract::Form;
 
-use super::SubstituteSubmitterNewPath;
+use super::SubstituteSubmitterCreatePath;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
+    list_submitters::ListSubmitter,
     substitute_list_submitters::{SubstituteSubmitter, SubstituteSubmitterForm},
 };
 
 #[derive(Template)]
-#[template(path = "substitute_list_submitters/substitute_submitter_create.html")]
+#[template(path = "substitute_list_submitters/create.html")]
 struct SubstituteSubmitterCreateTemplate {
     form: FormData<SubstituteSubmitterForm>,
 }
 
-pub async fn new_substitute_submitter_form(
-    _: SubstituteSubmitterNewPath,
+pub async fn create_substitute_submitter(
+    _: SubstituteSubmitterCreatePath,
     context: Context,
 ) -> Result<impl IntoResponse, AppError> {
     Ok(HtmlTemplate(
@@ -30,8 +31,8 @@ pub async fn new_substitute_submitter_form(
     ))
 }
 
-pub async fn create_substitute_submitter(
-    _: SubstituteSubmitterNewPath,
+pub async fn create_substitute_submitter_submit(
+    _: SubstituteSubmitterCreatePath,
     context: Context,
     State(store): State<AppStore>,
     Form(form): Form<SubstituteSubmitterForm>,
@@ -45,7 +46,7 @@ pub async fn create_substitute_submitter(
         Ok(substitute_submitter) => {
             substitute_submitter.create(&store).await?;
             // TODO: set success flash message
-            Ok(Redirect::to(&SubstituteSubmitter::list_path()).into_response())
+            Ok(Redirect::to(&ListSubmitter::list_path()).into_response())
         }
     }
 }
@@ -69,10 +70,10 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn new_substitute_submitter_form_renders_csrf_field() {
+    async fn create_substitute_submitter_renders_csrf_field() {
         let context = Context::new_test_without_db();
 
-        let response = new_substitute_submitter_form(SubstituteSubmitterNewPath {}, context)
+        let response = create_substitute_submitter(SubstituteSubmitterCreatePath {}, context)
             .await
             .unwrap()
             .into_response();
@@ -80,7 +81,10 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         let body = response_body_string(response).await;
         assert!(body.contains("name=\"csrf_token\""));
-        assert!(body.contains(&format!("action=\"{}\"", SubstituteSubmitter::new_path())));
+        assert!(body.contains(&format!(
+            "action=\"{}\"",
+            SubstituteSubmitter::create_path()
+        )));
     }
 
     #[sqlx::test]
@@ -96,8 +100,8 @@ mod tests {
         let csrf_token = context.csrf_tokens.issue().value;
         let form = sample_substitute_submitter_form(&csrf_token);
 
-        let response = create_substitute_submitter(
-            SubstituteSubmitterNewPath {},
+        let response = create_substitute_submitter_submit(
+            SubstituteSubmitterCreatePath {},
             context,
             State(store.clone()),
             Form(form),
@@ -112,7 +116,7 @@ mod tests {
             .expect("location header")
             .to_str()
             .expect("location header value");
-        assert_eq!(location, SubstituteSubmitter::list_path());
+        assert_eq!(location, ListSubmitter::list_path());
 
         let submitters = store.get_substitute_submitters()?;
         assert_eq!(submitters.len(), 1);
@@ -134,8 +138,8 @@ mod tests {
         let mut form = sample_substitute_submitter_form(&csrf_token);
         form.last_name = " ".to_string();
 
-        let response = create_substitute_submitter(
-            SubstituteSubmitterNewPath {},
+        let response = create_substitute_submitter_submit(
+            SubstituteSubmitterCreatePath {},
             context,
             State(store),
             Form(form),

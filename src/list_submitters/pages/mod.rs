@@ -17,15 +17,15 @@ mod list_submitters;
 pub struct ListSubmittersPath;
 
 #[derive(TypedPath)]
-#[typed_path("/political-group/list-submitters/new", rejection(AppError))]
-pub struct ListSubmitterNewPath;
+#[typed_path("/political-group/list-submitters/create", rejection(AppError))]
+pub struct ListSubmitterCreatePath;
 
 #[derive(TypedPath, Deserialize)]
 #[typed_path(
-    "/political-group/list-submitters/{submitter_id}/edit",
+    "/political-group/list-submitters/{submitter_id}/update",
     rejection(AppError)
 )]
-pub struct ListSubmitterEditPath {
+pub struct ListSubmitterUpdatePath {
     pub submitter_id: ListSubmitterId,
 }
 
@@ -43,12 +43,12 @@ impl ListSubmitter {
         ListSubmittersPath {}.to_string()
     }
 
-    pub fn new_path() -> String {
-        ListSubmitterNewPath {}.to_string()
+    pub fn create_path() -> String {
+        ListSubmitterCreatePath {}.to_string()
     }
 
-    pub fn edit_path(&self) -> String {
-        ListSubmitterEditPath {
+    pub fn update_path(&self) -> String {
+        ListSubmitterUpdatePath {
             submitter_id: self.id,
         }
         .to_string()
@@ -65,9 +65,9 @@ impl ListSubmitter {
 pub fn router() -> Router<AppState> {
     Router::new()
         .typed_get(list_submitters::list_submitters)
-        .typed_get(list_submitter_create::new_list_submitter_form)
-        .typed_post(list_submitter_create::create_list_submitter)
-        .typed_get(list_submitter_update::edit_list_submitter)
-        .typed_post(list_submitter_update::update_list_submitter)
+        .typed_get(list_submitter_create::create_list_submitter)
+        .typed_post(list_submitter_create::create_list_submitter_submit)
+        .typed_get(list_submitter_update::update_list_submitter)
+        .typed_post(list_submitter_update::update_list_submitter_submit)
         .typed_post(list_submitter_delete::delete_list_submitter)
 }

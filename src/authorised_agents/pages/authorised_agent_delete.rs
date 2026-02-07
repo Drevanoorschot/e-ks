@@ -20,7 +20,7 @@ pub async fn delete_authorised_agent(
     Form(form): Form<EmptyForm>,
 ) -> Result<Response, AppError> {
     match form.validate_create(&context.csrf_tokens) {
-        Err(_) => Ok(Redirect::to(&authorized_agent.edit_path()).into_response()),
+        Err(_) => Ok(Redirect::to(&authorized_agent.update_path()).into_response()),
         Ok(_) => {
             authorized_agent.delete(&store).await?;
 
@@ -113,7 +113,7 @@ mod tests {
             .expect("location header")
             .to_str()
             .expect("location header value");
-        assert_eq!(location, authorised_agent.edit_path());
+        assert_eq!(location, authorised_agent.update_path());
 
         let agents = store.get_authorised_agents()?;
         assert_eq!(agents.len(), 1);

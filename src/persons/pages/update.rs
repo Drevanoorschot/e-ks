@@ -8,7 +8,7 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppResponse, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
-    persons::{COUNTRY_CODES, Person, PersonForm, pages::EditPersonPath},
+    persons::{COUNTRY_CODES, Person, PersonForm, pages::UpdatePersonPath},
 };
 
 #[derive(Template)]
@@ -19,8 +19,8 @@ struct PersonUpdateTemplate {
     countries: &'static [&'static str],
 }
 
-pub async fn edit_person_form(
-    _: EditPersonPath,
+pub async fn update_person(
+    _: UpdatePersonPath,
     context: Context,
     person: Person,
 ) -> AppResponse<impl IntoResponse> {
@@ -34,8 +34,8 @@ pub async fn edit_person_form(
     ))
 }
 
-pub async fn update_person(
-    _: EditPersonPath,
+pub async fn update_person_submit(
+    _: UpdatePersonPath,
     context: Context,
     State(store): State<AppStore>,
     person: Person,
@@ -76,15 +76,15 @@ mod tests {
     };
 
     #[sqlx::test]
-    async fn edit_person_form_renders_existing_person(pool: PgPool) -> Result<(), AppError> {
+    async fn update_person_renders_existing_person(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let person_id = PersonId::new();
         let person = sample_person(person_id);
 
         person.create(&store).await?;
 
-        let response = edit_person_form(
-            EditPersonPath { person_id },
+        let response = update_person(
+            UpdatePersonPath { person_id },
             Context::new_test_without_db(),
             person,
         )
@@ -112,8 +112,8 @@ mod tests {
         let mut form = sample_person_form(&csrf_token);
         form.last_name = "Updated".to_string();
 
-        let response = update_person(
-            EditPersonPath { person_id },
+        let response = update_person_submit(
+            UpdatePersonPath { person_id },
             context,
             State(store.clone()),
             person,
@@ -150,8 +150,8 @@ mod tests {
         let mut form = sample_person_form(&csrf_token);
         form.last_name = " ".to_string();
 
-        let response = update_person(
-            EditPersonPath { person_id },
+        let response = update_person_submit(
+            UpdatePersonPath { person_id },
             context,
             State(store),
             person,

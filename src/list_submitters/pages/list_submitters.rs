@@ -1,16 +1,19 @@
 use super::ListSubmittersPath;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, authorised_agents::AuthorisedAgent, filters,
-    list_submitters::ListSubmitter, political_groups::PoliticalGroup,
+    list_submitters::ListSubmitter,
+    political_groups::{PoliticalGroup, PoliticalGroupSteps},
     substitute_list_submitters::SubstituteSubmitter,
 };
 use askama::Template;
 use axum::{extract::State, response::IntoResponse};
 
 #[derive(Template)]
-#[template(path = "list_submitters/list_submitters.html")]
+#[template(path = "political_groups/submitters.html")]
 struct ListSubmittersTemplate {
     list_submitters: Vec<ListSubmitter>,
+    substitute_submitters: Vec<SubstituteSubmitter>,
+    steps: PoliticalGroupSteps,
 }
 
 pub async fn list_submitters(
@@ -18,10 +21,23 @@ pub async fn list_submitters(
     context: Context,
     State(store): State<AppStore>,
 ) -> Result<impl IntoResponse, AppError> {
+    let political_group = store.get_political_group()?;
+    let authorised_agents = store.get_authorised_agents()?;
     let list_submitters = store.get_list_submitters()?;
+    let substitute_submitters = store.get_substitute_submitters()?;
+    let steps = PoliticalGroupSteps::new(
+        &political_group,
+        &authorised_agents,
+        &list_submitters,
+        &substitute_submitters,
+    );
 
     Ok(HtmlTemplate(
-        ListSubmittersTemplate { list_submitters },
+        ListSubmittersTemplate {
+            list_submitters,
+            substitute_submitters,
+            steps,
+        },
         context,
     ))
 }
@@ -88,7 +104,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
         let body = response_body_string(response).await;
-        assert!(body.contains(&list_submitter.edit_path()));
+        assert!(body.contains(&list_submitter.update_path()));
 
         Ok(())
     }

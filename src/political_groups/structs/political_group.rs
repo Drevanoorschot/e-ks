@@ -20,6 +20,18 @@ pub struct PoliticalGroup {
 }
 
 impl PoliticalGroup {
+    pub fn is_basic_info_complete(&self) -> bool {
+        self.long_list_allowed.is_some()
+            && !self.legal_name.as_deref().unwrap_or("").is_empty()
+            && !self.display_name.as_deref().unwrap_or("").is_empty()
+    }
+
+    pub fn is_basic_info_empty(&self) -> bool {
+        self.long_list_allowed.is_none()
+            && self.legal_name.as_deref().unwrap_or("").is_empty()
+            && self.display_name.as_deref().unwrap_or("").is_empty()
+    }
+
     pub async fn create(&self, store: &AppStore) -> Result<(), AppError> {
         store
             .update(AppEvent::UpdatePoliticalGroup(self.clone()))

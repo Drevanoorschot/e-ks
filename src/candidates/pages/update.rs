@@ -15,7 +15,7 @@ use crate::{
     persons::{COUNTRY_CODES, PersonForm},
 };
 
-use super::CandidateListEditPersonPath;
+use super::CandidateListUpdatePersonPath;
 #[derive(Template)]
 #[template(path = "candidates/update.html")]
 struct PersonUpdateTemplate {
@@ -25,8 +25,8 @@ struct PersonUpdateTemplate {
     countries: &'static [&'static str],
 }
 
-pub async fn edit_person_form(
-    _: CandidateListEditPersonPath,
+pub async fn update_person(
+    _: CandidateListUpdatePersonPath,
     context: Context,
     full_list: FullCandidateList,
     candidate: Candidate,
@@ -45,8 +45,8 @@ pub async fn edit_person_form(
     ))
 }
 
-pub async fn update_person(
-    _: CandidateListEditPersonPath,
+pub async fn update_person_submit(
+    _: CandidateListUpdatePersonPath,
     context: Context,
     full_list: FullCandidateList,
     candidate: Candidate,
@@ -93,7 +93,7 @@ mod tests {
     };
 
     #[sqlx::test]
-    async fn edit_person_form_renders_candidate(pool: PgPool) -> Result<(), AppError> {
+    async fn update_person_renders_candidate(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
@@ -106,8 +106,8 @@ mod tests {
         let full_list = FullCandidateList::get(&store, list_id).expect("candidate list");
         let candidate = CandidateList::get_candidate(&store, list_id, person.id).await?;
 
-        let response = edit_person_form(
-            CandidateListEditPersonPath {
+        let response = update_person(
+            CandidateListUpdatePersonPath {
                 list_id,
                 person_id: person.id,
             },
@@ -144,8 +144,8 @@ mod tests {
         let mut form = sample_person_form(&csrf_token);
         form.last_name = "Updated".to_string();
 
-        let response = update_person(
-            CandidateListEditPersonPath {
+        let response = update_person_submit(
+            CandidateListUpdatePersonPath {
                 list_id,
                 person_id: person.id,
             },
@@ -195,8 +195,8 @@ mod tests {
         let mut form = sample_person_form(&csrf_token);
         form.last_name = " ".to_string();
 
-        let response = update_person(
-            CandidateListEditPersonPath {
+        let response = update_person_submit(
+            CandidateListUpdatePersonPath {
                 list_id,
                 person_id: person.id,
             },

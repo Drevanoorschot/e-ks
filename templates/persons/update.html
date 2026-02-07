@@ -7,12 +7,12 @@
 
 {% block close_action %}{{ Person::list_path() }}{% endblock %}
 
-{% block overlay_start %}<form method="post" action="{{ person.edit_path() }}" class="overlay">{% endblock %}
+{% block overlay_start %}<form method="post" action="{{ person.update_path() }}" class="overlay">{% endblock %}
 
 {% block overlay_content %}
   <div class="overlay-content steps">
     {% let should_warn = true %}
-    {% include "persons/components/edit_steps.html" %}
+    {% include "persons/components/update_steps.html" %}
     <div class="form">
       <fieldset>
         <legend>

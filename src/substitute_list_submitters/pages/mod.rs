@@ -10,22 +10,17 @@ use crate::{
 mod substitute_submitter_create;
 mod substitute_submitter_delete;
 mod substitute_submitter_update;
-mod substitute_submitters;
-
-#[derive(TypedPath, Deserialize)]
-#[typed_path("/political-group/substitute-submitters", rejection(AppError))]
-pub struct SubstituteSubmittersPath;
 
 #[derive(TypedPath)]
-#[typed_path("/political-group/substitute-submitters/new", rejection(AppError))]
-pub struct SubstituteSubmitterNewPath;
+#[typed_path("/political-group/substitute-submitters/create", rejection(AppError))]
+pub struct SubstituteSubmitterCreatePath;
 
 #[derive(TypedPath, Deserialize)]
 #[typed_path(
-    "/political-group/substitute-submitters/{sub_submitter_id}/edit",
+    "/political-group/substitute-submitters/{sub_submitter_id}/update",
     rejection(AppError)
 )]
-pub struct SubstituteSubmitterEditPath {
+pub struct SubstituteSubmitterUpdatePath {
     pub sub_submitter_id: SubstituteSubmitterId,
 }
 
@@ -39,16 +34,12 @@ pub struct SubstituteSubmitterDeletePath {
 }
 
 impl SubstituteSubmitter {
-    pub fn list_path() -> String {
-        SubstituteSubmittersPath {}.to_string()
+    pub fn create_path() -> String {
+        SubstituteSubmitterCreatePath {}.to_string()
     }
 
-    pub fn new_path() -> String {
-        SubstituteSubmitterNewPath {}.to_string()
-    }
-
-    pub fn edit_path(&self) -> String {
-        SubstituteSubmitterEditPath {
+    pub fn update_path(&self) -> String {
+        SubstituteSubmitterUpdatePath {
             sub_submitter_id: self.id,
         }
         .to_string()
@@ -64,10 +55,9 @@ impl SubstituteSubmitter {
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .typed_get(substitute_submitters::list_substitute_submitters)
-        .typed_get(substitute_submitter_create::new_substitute_submitter_form)
-        .typed_post(substitute_submitter_create::create_substitute_submitter)
-        .typed_get(substitute_submitter_update::edit_substitute_submitter)
-        .typed_post(substitute_submitter_update::update_substitute_submitter)
+        .typed_get(substitute_submitter_create::create_substitute_submitter)
+        .typed_post(substitute_submitter_create::create_substitute_submitter_submit)
+        .typed_get(substitute_submitter_update::update_substitute_submitter)
+        .typed_post(substitute_submitter_update::update_substitute_submitter_submit)
         .typed_post(substitute_submitter_delete::delete_substitute_submitter)
 }

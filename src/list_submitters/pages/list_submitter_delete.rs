@@ -10,7 +10,7 @@ use crate::{
     list_submitters::ListSubmitter,
 };
 
-use super::{ListSubmitterDeletePath, ListSubmitterEditPath};
+use super::{ListSubmitterDeletePath, ListSubmitterUpdatePath};
 
 pub async fn delete_list_submitter(
     ListSubmitterDeletePath { submitter_id }: ListSubmitterDeletePath,
@@ -20,7 +20,7 @@ pub async fn delete_list_submitter(
 ) -> Result<Response, AppError> {
     match form.validate_create(&context.csrf_tokens) {
         Err(_) => {
-            Ok(Redirect::to(&ListSubmitterEditPath { submitter_id }.to_string()).into_response())
+            Ok(Redirect::to(&ListSubmitterUpdatePath { submitter_id }.to_string()).into_response())
         }
         Ok(_) => {
             ListSubmitter::delete_by_id(&store, submitter_id).await?;
@@ -110,7 +110,10 @@ mod tests {
             .expect("location header")
             .to_str()
             .expect("location header value");
-        assert_eq!(location, ListSubmitterEditPath { submitter_id }.to_string());
+        assert_eq!(
+            location,
+            ListSubmitterUpdatePath { submitter_id }.to_string()
+        );
 
         let submitters = store.get_list_submitters()?;
         assert_eq!(submitters.len(), 1);

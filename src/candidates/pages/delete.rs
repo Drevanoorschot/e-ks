@@ -23,7 +23,7 @@ pub async fn delete_person(
     match form.validate_create(&context.csrf_tokens) {
         Err(_) => {
             // TODO: set error flash message
-            Ok(Redirect::to(&candidate.edit_path()).into_response())
+            Ok(Redirect::to(&candidate.update_path()).into_response())
         }
         Ok(_) => {
             CandidateList::remove_candidate_from_all(&store, candidate.person.id).await?;

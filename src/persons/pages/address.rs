@@ -8,19 +8,19 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppResponse, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
-    persons::{AddressForm, InitialEditQuery, Person, pages::EditPersonAddressPath},
+    persons::{AddressForm, InitialEditQuery, Person, pages::UpdatePersonAddressPath},
 };
 
 #[derive(Template)]
-#[template(path = "persons/address.html")]
+#[template(path = "persons/update_address.html")]
 struct PersonAddressUpdateTemplate {
     should_warn: bool,
     person: Person,
     form: FormData<AddressForm>,
 }
 
-pub async fn edit_person_address(
-    _: EditPersonAddressPath,
+pub async fn update_person_address(
+    _: UpdatePersonAddressPath,
     context: Context,
     person: Person,
     Query(query): Query<InitialEditQuery>,
@@ -35,8 +35,8 @@ pub async fn edit_person_address(
     ))
 }
 
-pub async fn update_person_address(
-    _: EditPersonAddressPath,
+pub async fn update_person_address_submit(
+    _: UpdatePersonAddressPath,
     context: Context,
     person: Person,
     State(store): State<AppStore>,
@@ -79,15 +79,15 @@ mod tests {
     };
 
     #[sqlx::test]
-    async fn edit_person_address_renders_existing_person(pool: PgPool) -> Result<(), AppError> {
+    async fn update_person_address_renders_existing_person(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let person_id: PersonId = PersonId::new();
         let person = sample_person(person_id);
 
         person.create(&store).await?;
 
-        let response = edit_person_address(
-            EditPersonAddressPath { person_id },
+        let response = update_person_address(
+            UpdatePersonAddressPath { person_id },
             Context::new_test_without_db(),
             person,
             Query(InitialEditQuery::default()),
@@ -115,8 +115,8 @@ mod tests {
         let csrf_token = context.csrf_tokens.issue().value;
         let form = sample_address_form(&csrf_token);
 
-        let response = update_person_address(
-            EditPersonAddressPath { person_id },
+        let response = update_person_address_submit(
+            UpdatePersonAddressPath { person_id },
             context,
             person,
             State(store.clone()),
@@ -157,8 +157,8 @@ mod tests {
         let mut form = sample_address_form(&csrf_token);
         form.postal_code = "a".to_string();
 
-        let response = update_person_address(
-            EditPersonAddressPath { person_id },
+        let response = update_person_address_submit(
+            UpdatePersonAddressPath { person_id },
             context,
             person,
             State(store),
@@ -187,8 +187,8 @@ mod tests {
         let context = Context::new_test_without_db();
 
         // Update with Dutch address (but all form fields filled)
-        update_person_address(
-            EditPersonAddressPath { person_id },
+        update_person_address_submit(
+            UpdatePersonAddressPath { person_id },
             context.clone(),
             person.clone(),
             State(store.clone()),

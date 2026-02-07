@@ -8,7 +8,7 @@
 {% block close_action %}{{ full_list.list.view_path() }}{% endblock %}
 
 {% block overlay_start %}
-<form method="post" action="{{ candidate.edit_representative_path() }}" class="overlay">
+<form method="post" action="{{ candidate.update_representative_path() }}" class="overlay">
 <input type="hidden" name="csrf_token" value="{{ form.data.csrf_token }}">
 {% endblock %}
 
@@ -16,7 +16,7 @@
 
 {% block overlay_content %}
   <div class="overlay-content steps">
-    {% include "candidates/components/edit_steps.html" %}
+    {% include "candidates/components/update_steps.html" %}
     <div class="form">
       <fieldset>
         <legend>

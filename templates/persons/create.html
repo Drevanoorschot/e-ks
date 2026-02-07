@@ -4,7 +4,7 @@
 
 {% block overlay_title %}{{ "person.form.create.title"|trans }}{% endblock %}
 
-{% block overlay_start %}<form method="post" action="{{ Person::new_path() }}" class="overlay">{% endblock %}
+{% block overlay_start %}<form method="post" action="{{ Person::create_path() }}" class="overlay">{% endblock %}
 {% block overlay_end %}</form>{% endblock %}
 
 {% block overlay_content %}
@@ -12,7 +12,7 @@
   <div class="steps-nav">
     <ul>
       <li>
-        <a href="{{ Person::new_path() }}" class="active">
+        <a href="{{ Person::create_path() }}" class="active">
           {{ "person.personal_details"|trans }}
         </a>
       </li>

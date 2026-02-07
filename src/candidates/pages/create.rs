@@ -23,7 +23,7 @@ struct PersonCreateTemplate {
     countries: &'static [&'static str],
 }
 
-pub async fn new_person_candidate_list(
+pub async fn create_person_candidate_list(
     _: CreateCandidatePath,
     context: Context,
     full_list: FullCandidateList,
@@ -39,7 +39,7 @@ pub async fn new_person_candidate_list(
     .into_response())
 }
 
-pub async fn create_person_candidate_list(
+pub async fn create_person_candidate_list_submit(
     _: CreateCandidatePath,
     context: Context,
     full_list: FullCandidateList,
@@ -88,7 +88,7 @@ mod tests {
     };
 
     #[sqlx::test]
-    async fn new_person_candidate_list_renders_form(pool: PgPool) -> Result<(), AppError> {
+    async fn create_person_candidate_list_renders_form(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
@@ -96,7 +96,7 @@ mod tests {
 
         let full_list = FullCandidateList::get(&store, list_id).expect("candidate list");
 
-        let response = new_person_candidate_list(
+        let response = create_person_candidate_list(
             CreateCandidatePath { list_id },
             Context::new_test_without_db(),
             full_list,
@@ -106,7 +106,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
         let body = response_body_string(response).await;
-        assert!(body.contains(&list.new_candidate_path()));
+        assert!(body.contains(&list.create_candidate_path()));
         assert!(body.contains("name=\"csrf_token\""));
 
         Ok(())
@@ -127,7 +127,7 @@ mod tests {
 
         let full_list = FullCandidateList::get(&store, list_id).expect("candidate list");
 
-        let response = create_person_candidate_list(
+        let response = create_person_candidate_list_submit(
             CreateCandidatePath { list_id },
             context,
             full_list,
@@ -168,7 +168,7 @@ mod tests {
 
         let full_list = FullCandidateList::get(&store, list_id).expect("candidate list");
 
-        let response = create_person_candidate_list(
+        let response = create_person_candidate_list_submit(
             CreateCandidatePath { list_id },
             context,
             full_list,

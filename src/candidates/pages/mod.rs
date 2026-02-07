@@ -12,14 +12,14 @@ use crate::{
 mod add;
 mod create;
 mod delete;
-mod edit_address;
-mod edit_position;
-mod edit_representative;
 mod update;
+mod update_address;
+mod update_position;
+mod update_representative;
 
 #[derive(TypedPath, Deserialize)]
 #[typed_path("/candidate-lists/{list_id}/reorder/{person_id}", rejection(AppError))]
-pub struct EditCandidatePositionPath {
+pub struct UpdateCandidatePositionPath {
     pub list_id: CandidateListId,
     pub person_id: PersonId,
 }
@@ -29,21 +29,21 @@ pub struct EditCandidatePositionPath {
     "/candidate-lists/{list_id}/representative/{person_id}",
     rejection(AppError)
 )]
-pub struct EditRepresentativePath {
+pub struct UpdateRepresentativePath {
     pub list_id: CandidateListId,
     pub person_id: PersonId,
 }
 
 #[derive(TypedPath, Deserialize)]
-#[typed_path("/candidate-lists/{list_id}/edit/{person_id}", rejection(AppError))]
-pub struct CandidateListEditPersonPath {
+#[typed_path("/candidate-lists/{list_id}/update/{person_id}", rejection(AppError))]
+pub struct CandidateListUpdatePersonPath {
     pub list_id: CandidateListId,
     pub person_id: PersonId,
 }
 
 #[derive(TypedPath, Deserialize)]
 #[typed_path("/candidate-lists/{list_id}/address/{person_id}", rejection(AppError))]
-pub struct CandidateListEditAddressPath {
+pub struct CandidateListUpdateAddressPath {
     pub list_id: CandidateListId,
     pub person_id: PersonId,
 }
@@ -62,38 +62,38 @@ pub struct AddCandidatePath {
 }
 
 #[derive(TypedPath, Deserialize)]
-#[typed_path("/candidate-lists/{list_id}/new", rejection(AppError))]
+#[typed_path("/candidate-lists/{list_id}/create", rejection(AppError))]
 pub struct CreateCandidatePath {
     pub list_id: CandidateListId,
 }
 
 impl Candidate {
-    pub fn edit_position_path(&self) -> String {
-        EditCandidatePositionPath {
+    pub fn update_position_path(&self) -> String {
+        UpdateCandidatePositionPath {
             list_id: self.list_id,
             person_id: self.person.id,
         }
         .to_string()
     }
 
-    pub fn edit_path(&self) -> String {
-        CandidateListEditPersonPath {
+    pub fn update_path(&self) -> String {
+        CandidateListUpdatePersonPath {
             list_id: self.list_id,
             person_id: self.person.id,
         }
         .to_string()
     }
 
-    pub fn edit_address_path(&self) -> String {
-        CandidateListEditAddressPath {
+    pub fn update_address_path(&self) -> String {
+        CandidateListUpdateAddressPath {
             list_id: self.list_id,
             person_id: self.person.id,
         }
         .to_string()
     }
 
-    pub fn edit_representative_path(&self) -> String {
-        EditRepresentativePath {
+    pub fn update_representative_path(&self) -> String {
+        UpdateRepresentativePath {
             list_id: self.list_id,
             person_id: self.person.id,
         }
@@ -110,14 +110,14 @@ impl Candidate {
 
     pub fn after_create_path(&self) -> String {
         if self.person.is_dutch() {
-            CandidateListEditAddressPath {
+            CandidateListUpdateAddressPath {
                 list_id: self.list_id,
                 person_id: self.person.id,
             }
             .with_query_params(InitialEditQuery::default())
             .to_string()
         } else {
-            EditRepresentativePath {
+            UpdateRepresentativePath {
                 list_id: self.list_id,
                 person_id: self.person.id,
             }
@@ -131,15 +131,15 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .typed_get(add::add_existing_person)
         .typed_post(add::add_person_to_candidate_list)
-        .typed_get(edit_position::edit_candidate_position)
-        .typed_post(edit_position::update_candidate_position)
-        .typed_get(create::new_person_candidate_list)
-        .typed_post(create::create_person_candidate_list)
-        .typed_get(edit_address::edit_person_address)
-        .typed_post(edit_address::update_person_address)
-        .typed_get(edit_representative::edit_representative)
-        .typed_post(edit_representative::update_representative)
-        .typed_get(update::edit_person_form)
-        .typed_post(update::update_person)
+        .typed_get(update_position::update_candidate_position)
+        .typed_post(update_position::update_candidate_position_submit)
+        .typed_get(create::create_person_candidate_list)
+        .typed_post(create::create_person_candidate_list_submit)
+        .typed_get(update_address::update_person_address)
+        .typed_post(update_address::update_person_address_submit)
+        .typed_get(update_representative::update_representative)
+        .typed_post(update_representative::update_representative_submit)
+        .typed_get(update::update_person)
+        .typed_post(update::update_person_submit)
         .typed_post(delete::delete_person)
 }

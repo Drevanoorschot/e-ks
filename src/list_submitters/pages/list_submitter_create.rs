@@ -5,7 +5,7 @@ use axum::{
 };
 use axum_extra::extract::Form;
 
-use super::ListSubmitterNewPath;
+use super::ListSubmitterCreatePath;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
@@ -13,13 +13,13 @@ use crate::{
 };
 
 #[derive(Template)]
-#[template(path = "list_submitters/list_submitter_create.html")]
+#[template(path = "list_submitters/create.html")]
 struct ListSubmitterCreateTemplate {
     form: FormData<ListSubmitterForm>,
 }
 
-pub async fn new_list_submitter_form(
-    _: ListSubmitterNewPath,
+pub async fn create_list_submitter(
+    _: ListSubmitterCreatePath,
     context: Context,
 ) -> Result<impl IntoResponse, AppError> {
     Ok(HtmlTemplate(
@@ -30,8 +30,8 @@ pub async fn new_list_submitter_form(
     ))
 }
 
-pub async fn create_list_submitter(
-    _: ListSubmitterNewPath,
+pub async fn create_list_submitter_submit(
+    _: ListSubmitterCreatePath,
     context: Context,
     State(store): State<AppStore>,
     Form(form): Form<ListSubmitterForm>,
@@ -68,10 +68,10 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn new_list_submitter_form_renders_csrf_field() {
+    async fn create_list_submitter_renders_csrf_field() {
         let context = Context::new_test_without_db();
 
-        let response = new_list_submitter_form(ListSubmitterNewPath {}, context)
+        let response = create_list_submitter(ListSubmitterCreatePath {}, context)
             .await
             .unwrap()
             .into_response();
@@ -79,7 +79,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         let body = response_body_string(response).await;
         assert!(body.contains("name=\"csrf_token\""));
-        assert!(body.contains(&format!("action=\"{}\"", ListSubmitter::new_path())));
+        assert!(body.contains(&format!("action=\"{}\"", ListSubmitter::create_path())));
     }
 
     #[sqlx::test]
@@ -93,8 +93,8 @@ mod tests {
         let csrf_token = context.csrf_tokens.issue().value;
         let form = sample_list_submitter_form(&csrf_token);
 
-        let response = create_list_submitter(
-            ListSubmitterNewPath {},
+        let response = create_list_submitter_submit(
+            ListSubmitterCreatePath {},
             context,
             State(store.clone()),
             Form(form),
@@ -131,11 +131,15 @@ mod tests {
         let mut form = sample_list_submitter_form(&csrf_token);
         form.last_name = " ".to_string();
 
-        let response =
-            create_list_submitter(ListSubmitterNewPath {}, context, State(store), Form(form))
-                .await
-                .unwrap()
-                .into_response();
+        let response = create_list_submitter_submit(
+            ListSubmitterCreatePath {},
+            context,
+            State(store),
+            Form(form),
+        )
+        .await
+        .unwrap()
+        .into_response();
 
         assert_eq!(response.status(), StatusCode::OK);
         let body = response_body_string(response).await;

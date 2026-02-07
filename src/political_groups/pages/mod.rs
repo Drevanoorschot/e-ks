@@ -7,16 +7,16 @@ mod update;
 
 #[derive(TypedPath)]
 #[typed_path("/political-group", rejection(AppError))]
-pub struct PoliticalGroupEditPath;
+pub struct PoliticalGroupUpdatePath;
 
 impl PoliticalGroup {
-    pub fn edit_path() -> String {
-        PoliticalGroupEditPath {}.to_string()
+    pub fn update_path() -> String {
+        PoliticalGroupUpdatePath {}.to_string()
     }
 }
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .typed_get(update::edit_political_group)
-        .typed_post(update::update_political_group)
+        .typed_get(update::update_political_group)
+        .typed_post(update::update_political_group_submit)
 }

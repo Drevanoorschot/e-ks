@@ -8,7 +8,7 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
-    persons::{COUNTRY_CODES, Person, PersonForm, pages::PersonsNewPath},
+    persons::{COUNTRY_CODES, Person, PersonForm, pages::PersonsCreatePath},
 };
 
 #[derive(Template)]
@@ -18,8 +18,8 @@ struct PersonCreateTemplate {
     countries: &'static [&'static str],
 }
 
-pub async fn new_person_form(
-    _: PersonsNewPath,
+pub async fn create_person(
+    _: PersonsCreatePath,
     context: Context,
 ) -> Result<impl IntoResponse, AppError> {
     Ok(HtmlTemplate(
@@ -31,8 +31,8 @@ pub async fn new_person_form(
     ))
 }
 
-pub async fn create_person(
-    _: PersonsNewPath,
+pub async fn create_person_submit(
+    _: PersonsCreatePath,
     context: Context,
     State(store): State<AppStore>,
     Form(form): Form<PersonForm>,
@@ -70,10 +70,10 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn new_person_form_renders_csrf_field() {
+    async fn create_person_renders_csrf_field() {
         let context = Context::new_test_without_db();
 
-        let response = new_person_form(PersonsNewPath {}, context)
+        let response = create_person(PersonsCreatePath {}, context)
             .await
             .unwrap()
             .into_response();
@@ -82,7 +82,7 @@ mod tests {
 
         let body = response_body_string(response).await;
         assert!(body.contains("name=\"csrf_token\""));
-        assert!(body.contains("action=\"/persons/new\""));
+        assert!(body.contains("action=\"/persons/create\""));
     }
 
     #[sqlx::test]
@@ -92,9 +92,14 @@ mod tests {
         let csrf_token = context.csrf_tokens.issue().value;
         let form = sample_person_form(&csrf_token);
 
-        let response = create_person(PersonsNewPath {}, context, State(store.clone()), Form(form))
-            .await
-            .unwrap();
+        let response = create_person_submit(
+            PersonsCreatePath {},
+            context,
+            State(store.clone()),
+            Form(form),
+        )
+        .await
+        .unwrap();
 
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         let location = response
@@ -119,9 +124,10 @@ mod tests {
         let mut form = sample_person_form(&csrf_token);
         form.last_name = " ".to_string();
 
-        let response = create_person(PersonsNewPath {}, context, State(store), Form(form))
-            .await
-            .unwrap();
+        let response =
+            create_person_submit(PersonsCreatePath {}, context, State(store), Form(form))
+                .await
+                .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
         let body = response_body_string(response).await;

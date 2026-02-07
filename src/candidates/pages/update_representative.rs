@@ -4,73 +4,71 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::Form;
-use chrono::Utc;
 
 use crate::{
-    AppError, AppEvent, AppResponse, AppStore, Context, HtmlTemplate,
+    AppError, AppResponse, AppStore, Context, HtmlTemplate,
     candidate_lists::FullCandidateList,
     candidates::Candidate,
     filters,
     form::{FormData, Validate},
-    persons::{AddressForm, InitialEditQuery},
+    persons::{InitialEditQuery, RepresentativeForm},
 };
 
-use super::CandidateListEditAddressPath;
+use super::UpdateRepresentativePath;
 #[derive(Template)]
-#[template(path = "candidates/edit_address.html")]
-struct PersonAddressUpdateTemplate {
+#[template(path = "candidates/update_representative.html")]
+struct UpdateRepresentativeTemplate {
     should_warn: bool,
-    candidate: Candidate,
-    form: FormData<AddressForm>,
     full_list: FullCandidateList,
+    candidate: Candidate,
+    form: FormData<RepresentativeForm>,
 }
 
-pub async fn edit_person_address(
-    _: CandidateListEditAddressPath,
+pub async fn update_representative(
+    _: UpdateRepresentativePath,
     context: Context,
     full_list: FullCandidateList,
     candidate: Candidate,
     Query(query): Query<InitialEditQuery>,
 ) -> AppResponse<impl IntoResponse> {
     let form = FormData::new_with_data(
-        AddressForm::from(candidate.person.clone()),
+        RepresentativeForm::from(candidate.person.clone()),
         &context.csrf_tokens,
     );
 
     Ok(HtmlTemplate(
-        PersonAddressUpdateTemplate {
+        UpdateRepresentativeTemplate {
             should_warn: query.should_warn(),
-            form,
             candidate: candidate.clone(),
             full_list,
+            form,
         },
         context,
     ))
 }
 
-pub async fn update_person_address(
-    _: CandidateListEditAddressPath,
+pub async fn update_representative_submit(
+    _: UpdateRepresentativePath,
     context: Context,
     full_list: FullCandidateList,
     candidate: Candidate,
     State(store): State<AppStore>,
     Query(query): Query<InitialEditQuery>,
-    Form(form): Form<AddressForm>,
+    Form(form): Form<RepresentativeForm>,
 ) -> Result<Response, AppError> {
     match form.validate_update(&candidate.person, &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
-            PersonAddressUpdateTemplate {
+            UpdateRepresentativeTemplate {
                 should_warn: query.should_warn(),
                 candidate,
-                form: form_data,
                 full_list,
+                form: form_data,
             },
             context,
         )
         .into_response()),
-        Ok(mut person) => {
-            person.updated_at = Utc::now();
-            store.update(AppEvent::UpdatePerson(person)).await?;
+        Ok(person) => {
+            person.update(&store).await?;
 
             Ok(Redirect::to(&full_list.list.view_path()).into_response())
         }
@@ -89,31 +87,31 @@ mod tests {
     use sqlx::PgPool;
 
     use crate::{
-        AppEvent, AppStore, Context,
+        AppError, AppStore, Context,
         candidate_lists::{CandidateList, CandidateListId},
         persons::PersonId,
         test_utils::{
-            response_body_string, sample_address_form, sample_candidate_list,
-            sample_person_with_last_name,
+            extract_csrf_token, response_body_string, sample_candidate_list, sample_person,
+            sample_representative_form,
         },
     };
 
     #[sqlx::test]
-    async fn edit_person_address_renders_candidate(pool: PgPool) -> Result<(), AppError> {
+    async fn update_representative_renders_candidate(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
-        let person = sample_person_with_last_name(PersonId::new(), "Jansen");
+        let person = sample_person(PersonId::new());
 
         list.create(&store).await?;
-        store.update(AppEvent::CreatePerson(person.clone())).await?;
+        person.create(&store).await?;
         CandidateList::update_order(&store, list_id, &[person.id]).await?;
 
         let full_list = FullCandidateList::get(&store, list_id).expect("candidate list");
         let candidate = CandidateList::get_candidate(&store, list_id, person.id).await?;
 
-        let response = edit_person_address(
-            CandidateListEditAddressPath {
+        let response = update_representative(
+            UpdateRepresentativePath {
                 list_id,
                 person_id: person.id,
             },
@@ -122,7 +120,8 @@ mod tests {
             candidate,
             Query(InitialEditQuery::default()),
         )
-        .await?
+        .await
+        .unwrap()
         .into_response();
 
         assert_eq!(response.status(), StatusCode::OK);
@@ -133,14 +132,53 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn update_person_address_persists_and_redirects(pool: PgPool) -> Result<(), AppError> {
+    async fn update_representative_renders_valid_csrf_token(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
-        let person = sample_person_with_last_name(PersonId::new(), "Jansen");
+        let person = sample_person(PersonId::new());
 
         list.create(&store).await?;
-        store.update(AppEvent::CreatePerson(person.clone())).await?;
+        person.create(&store).await?;
+        CandidateList::update_order(&store, list_id, &[person.id]).await?;
+
+        let full_list = FullCandidateList::get(&store, list_id).expect("candidate list");
+        let candidate = CandidateList::get_candidate(&store, list_id, person.id).await?;
+
+        let context = Context::new_test_without_db();
+        let csrf_tokens = context.csrf_tokens.clone();
+
+        let response = update_representative(
+            UpdateRepresentativePath {
+                list_id,
+                person_id: person.id,
+            },
+            context,
+            full_list,
+            candidate,
+            Query(InitialEditQuery::default()),
+        )
+        .await
+        .unwrap()
+        .into_response();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_body_string(response).await;
+        let csrf_token = extract_csrf_token(&body).expect("csrf token");
+        assert!(csrf_tokens.consume(&csrf_token));
+
+        Ok(())
+    }
+
+    #[sqlx::test]
+    async fn update_representative_persists_and_redirects(pool: PgPool) -> Result<(), AppError> {
+        let store = AppStore::new(pool);
+        let list_id = CandidateListId::new();
+        let list = sample_candidate_list(list_id);
+        let person = sample_person(PersonId::new());
+
+        list.create(&store).await?;
+        person.create(&store).await?;
         CandidateList::update_order(&store, list_id, &[person.id]).await?;
 
         let full_list = FullCandidateList::get(&store, list_id).expect("candidate list");
@@ -148,11 +186,11 @@ mod tests {
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
-        let mut form = sample_address_form(&csrf_token);
-        form.locality = "Rotterdam".to_string();
+        let mut form = sample_representative_form(&csrf_token);
+        form.representative_last_name = "Smit".to_string();
 
-        let response = update_person_address(
-            CandidateListEditAddressPath {
+        let response = update_representative_submit(
+            UpdateRepresentativePath {
                 list_id,
                 person_id: person.id,
             },
@@ -163,7 +201,8 @@ mod tests {
             Query(InitialEditQuery::default()),
             Form(form),
         )
-        .await?;
+        .await
+        .unwrap();
 
         assert_eq!(response.status(), StatusCode::SEE_OTHER);
         let location = response
@@ -174,27 +213,23 @@ mod tests {
             .expect("location header value");
         assert_eq!(location, list.view_path());
 
-        let updated = store
-            .get_persons()?
-            .into_iter()
-            .find(|p| p.id == person.id)
-            .expect("updated person");
-        assert_eq!(updated.locality, Some("Rotterdam".to_string()));
+        let updated = store.get_person(person.id)?;
+        assert_eq!(updated.representative_last_name, Some("Smit".to_string()));
 
         Ok(())
     }
 
     #[sqlx::test]
-    async fn update_person_address_invalid_form_renders_template(
+    async fn update_representative_invalid_form_renders_template(
         pool: PgPool,
     ) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
-        let person = sample_person_with_last_name(PersonId::new(), "Jansen");
+        let person = sample_person(PersonId::new());
 
         list.create(&store).await?;
-        store.update(AppEvent::CreatePerson(person.clone())).await?;
+        person.create(&store).await?;
         CandidateList::update_order(&store, list_id, &[person.id]).await?;
 
         let full_list = FullCandidateList::get(&store, list_id).expect("candidate list");
@@ -202,11 +237,11 @@ mod tests {
 
         let context = Context::new_test_without_db();
         let csrf_token = context.csrf_tokens.issue().value;
-        let mut form = sample_address_form(&csrf_token);
+        let mut form = sample_representative_form(&csrf_token);
         form.postal_code = "a".to_string();
 
-        let response = update_person_address(
-            CandidateListEditAddressPath {
+        let response = update_representative_submit(
+            UpdateRepresentativePath {
                 list_id,
                 person_id: person.id,
             },
@@ -217,7 +252,8 @@ mod tests {
             Query(InitialEditQuery::default()),
             Form(form),
         )
-        .await?
+        .await
+        .unwrap()
         .into_response();
 
         assert_eq!(response.status(), StatusCode::OK);

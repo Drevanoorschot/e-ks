@@ -11,49 +11,74 @@ use crate::{
     filters,
     form::{FormData, Validate},
     list_submitters::ListSubmitter,
-    political_groups::{PoliticalGroup, PoliticalGroupForm},
-    substitute_list_submitters::SubstituteSubmitter,
+    political_groups::{PoliticalGroup, PoliticalGroupForm, PoliticalGroupSteps},
 };
 
-use super::PoliticalGroupEditPath;
+use super::PoliticalGroupUpdatePath;
 
 #[derive(Template)]
 #[template(path = "political_groups/update.html")]
 struct PoliticalGroupUpdateTemplate {
     form: FormData<PoliticalGroupForm>,
+    steps: PoliticalGroupSteps,
 }
 
-pub async fn edit_political_group(
-    _: PoliticalGroupEditPath,
+pub async fn update_political_group(
+    _: PoliticalGroupUpdatePath,
     context: Context,
+    State(store): State<AppStore>,
     political_group: PoliticalGroup,
 ) -> Result<Response, AppError> {
+    let authorised_agents = store.get_authorised_agents()?;
+    let list_submitters = store.get_list_submitters()?;
+    let substitute_submitters = store.get_substitute_submitters()?;
+    let steps = PoliticalGroupSteps::new(
+        &political_group,
+        &authorised_agents,
+        &list_submitters,
+        &substitute_submitters,
+    );
+
     Ok(HtmlTemplate(
         PoliticalGroupUpdateTemplate {
             form: FormData::new_with_data(political_group.clone().into(), &context.csrf_tokens),
+            steps,
         },
         context,
     )
     .into_response())
 }
 
-pub async fn update_political_group(
-    _: PoliticalGroupEditPath,
+pub async fn update_political_group_submit(
+    _: PoliticalGroupUpdatePath,
     context: Context,
     political_group: PoliticalGroup,
     State(store): State<AppStore>,
     Form(form): Form<PoliticalGroupForm>,
 ) -> Result<Response, AppError> {
+    let authorised_agents = store.get_authorised_agents()?;
+    let list_submitters = store.get_list_submitters()?;
+    let substitute_submitters = store.get_substitute_submitters()?;
+    let steps = PoliticalGroupSteps::new(
+        &political_group,
+        &authorised_agents,
+        &list_submitters,
+        &substitute_submitters,
+    );
+
     match form.validate_update(&political_group, &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
-            PoliticalGroupUpdateTemplate { form: form_data },
+            PoliticalGroupUpdateTemplate {
+                form: form_data,
+                steps,
+            },
             context,
         )
         .into_response()),
         Ok(political_group) => {
             political_group.update(&store).await?;
 
-            Ok(Redirect::to(&PoliticalGroup::edit_path()).into_response())
+            Ok(Redirect::to(&PoliticalGroup::update_path()).into_response())
         }
     }
 }
@@ -79,16 +104,17 @@ mod tests {
     };
 
     #[sqlx::test]
-    async fn edit_political_group_renders_existing_data(pool: PgPool) -> Result<(), AppError> {
+    async fn update_political_group_renders_existing_data(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
 
         political_group.create(&store).await?;
 
-        let response = edit_political_group(
-            PoliticalGroupEditPath {},
+        let response = update_political_group(
+            PoliticalGroupUpdatePath {},
             Context::new_test_without_db(),
+            State(store),
             political_group,
         )
         .await
@@ -118,8 +144,8 @@ mod tests {
         let csrf_token = context.csrf_tokens.issue().value;
         let form = sample_political_group_form(&csrf_token);
 
-        let response = update_political_group(
-            PoliticalGroupEditPath {},
+        let response = update_political_group_submit(
+            PoliticalGroupUpdatePath {},
             context,
             political_group,
             State(store.clone()),
@@ -135,7 +161,7 @@ mod tests {
             .expect("location header")
             .to_str()
             .expect("location header value");
-        assert_eq!(location, PoliticalGroup::edit_path());
+        assert_eq!(location, PoliticalGroup::update_path());
 
         let updated = store.get_political_group()?;
         assert_eq!(updated.long_list_allowed, Some(true));
@@ -167,8 +193,8 @@ mod tests {
 
         form.display_name = "!".to_string(); // Invalid value
 
-        let response = update_political_group(
-            PoliticalGroupEditPath {},
+        let response = update_political_group_submit(
+            PoliticalGroupUpdatePath {},
             context,
             political_group,
             State(store),

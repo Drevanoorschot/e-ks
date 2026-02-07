@@ -25,6 +25,21 @@ pub struct SubstituteSubmitter {
 }
 
 impl SubstituteSubmitter {
+    pub fn is_complete(&self) -> bool {
+        !self.initials.is_empty() && !self.last_name.is_empty() && self.is_address_complete()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.initials.is_empty()
+            && self.last_name.is_empty()
+            && self.last_name_prefix.as_deref().unwrap_or("").is_empty()
+            && self.locality.as_deref().unwrap_or("").is_empty()
+            && self.postal_code.as_deref().unwrap_or("").is_empty()
+            && self.house_number.as_deref().unwrap_or("").is_empty()
+            && self.house_number_addition.as_deref().unwrap_or("").is_empty()
+            && self.street_name.as_deref().unwrap_or("").is_empty()
+    }
+
     pub fn last_name_with_prefix(&self) -> String {
         if let Some(prefix) = &self.last_name_prefix {
             format!("{} {}", prefix, self.last_name)

@@ -12,17 +12,17 @@ use crate::{
     form::{FormData, Validate},
 };
 
-use super::AuthorisedAgentEditPath;
+use super::AuthorisedAgentUpdatePath;
 
 #[derive(Template)]
-#[template(path = "authorised_agents/authorised_agent_update.html")]
+#[template(path = "authorised_agents/update.html")]
 struct AuthorisedAgentUpdateTemplate {
     authorised_agent: AuthorisedAgent,
     form: FormData<AuthorisedAgentForm>,
 }
 
-pub async fn edit_authorised_agent(
-    _: AuthorisedAgentEditPath,
+pub async fn update_authorised_agent(
+    _: AuthorisedAgentUpdatePath,
     context: Context,
     authorised_agent: AuthorisedAgent,
 ) -> Result<Response, AppError> {
@@ -36,8 +36,8 @@ pub async fn edit_authorised_agent(
     .into_response())
 }
 
-pub async fn update_authorised_agent(
-    _: AuthorisedAgentEditPath,
+pub async fn update_authorised_agent_submit(
+    _: AuthorisedAgentUpdatePath,
     context: Context,
     authorised_agent: AuthorisedAgent,
     State(store): State<AppStore>,
@@ -81,7 +81,7 @@ mod tests {
     };
 
     #[sqlx::test]
-    async fn edit_authorised_agent_renders_existing_agent(pool: PgPool) -> Result<(), AppError> {
+    async fn update_authorised_agent_renders_existing_agent(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
@@ -91,8 +91,8 @@ mod tests {
         political_group.create(&store).await?;
         authorised_agent.create(&store).await?;
 
-        let response = edit_authorised_agent(
-            AuthorisedAgentEditPath { agent_id },
+        let response = update_authorised_agent(
+            AuthorisedAgentUpdatePath { agent_id },
             Context::new_test_without_db(),
             authorised_agent.clone(),
         )
@@ -123,8 +123,8 @@ mod tests {
         let mut form = sample_authorised_agent_form(&csrf_token);
         form.last_name = "Updated".to_string();
 
-        let response = update_authorised_agent(
-            AuthorisedAgentEditPath { agent_id },
+        let response = update_authorised_agent_submit(
+            AuthorisedAgentUpdatePath { agent_id },
             context,
             authorised_agent.clone(),
             State(store.clone()),
@@ -166,8 +166,8 @@ mod tests {
         let mut form = sample_authorised_agent_form(&csrf_token);
         form.last_name = " ".to_string();
 
-        let response = update_authorised_agent(
-            AuthorisedAgentEditPath { agent_id },
+        let response = update_authorised_agent_submit(
+            AuthorisedAgentUpdatePath { agent_id },
             context,
             authorised_agent.clone(),
             State(store),

@@ -11,17 +11,17 @@ use crate::{
     list_submitters::{ListSubmitter, ListSubmitterForm},
 };
 
-use super::ListSubmitterEditPath;
+use super::ListSubmitterUpdatePath;
 
 #[derive(Template)]
-#[template(path = "list_submitters/list_submitter_update.html")]
+#[template(path = "list_submitters/update.html")]
 struct ListSubmitterUpdateTemplate {
     list_submitter: ListSubmitter,
     form: FormData<ListSubmitterForm>,
 }
 
-pub async fn edit_list_submitter(
-    _: ListSubmitterEditPath,
+pub async fn update_list_submitter(
+    _: ListSubmitterUpdatePath,
     context: Context,
     list_submitter: ListSubmitter,
 ) -> Result<Response, AppError> {
@@ -35,8 +35,8 @@ pub async fn edit_list_submitter(
     .into_response())
 }
 
-pub async fn update_list_submitter(
-    _: ListSubmitterEditPath,
+pub async fn update_list_submitter_submit(
+    _: ListSubmitterUpdatePath,
     context: Context,
     list_submitter: ListSubmitter,
     State(store): State<AppStore>,
@@ -80,7 +80,9 @@ mod tests {
     };
 
     #[sqlx::test]
-    async fn edit_list_submitter_renders_existing_submitter(pool: PgPool) -> Result<(), AppError> {
+    async fn update_list_submitter_renders_existing_submitter(
+        pool: PgPool,
+    ) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
@@ -90,8 +92,8 @@ mod tests {
         political_group.create(&store).await?;
         list_submitter.create(&store).await?;
 
-        let response = edit_list_submitter(
-            ListSubmitterEditPath { submitter_id },
+        let response = update_list_submitter(
+            ListSubmitterUpdatePath { submitter_id },
             Context::new_test_without_db(),
             list_submitter.clone(),
         )
@@ -122,8 +124,8 @@ mod tests {
         let mut form = sample_list_submitter_form(&csrf_token);
         form.last_name = "Updated".to_string();
 
-        let response = update_list_submitter(
-            ListSubmitterEditPath { submitter_id },
+        let response = update_list_submitter_submit(
+            ListSubmitterUpdatePath { submitter_id },
             context,
             list_submitter.clone(),
             State(store.clone()),
@@ -165,8 +167,8 @@ mod tests {
         let mut form = sample_list_submitter_form(&csrf_token);
         form.last_name = " ".to_string();
 
-        let response = update_list_submitter(
-            ListSubmitterEditPath { submitter_id },
+        let response = update_list_submitter_submit(
+            ListSubmitterUpdatePath { submitter_id },
             context,
             list_submitter.clone(),
             State(store),

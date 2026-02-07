@@ -5,7 +5,7 @@ use sqlx::types::chrono::Utc;
 use crate::{
     AppError, AppEvent, AppStore, id_newtype,
     pagination::SortDirection,
-    persons::{Gender, PersonSort},
+    persons::{Gender, PersonSort, structs::person_sort::compare_persons},
 };
 
 id_newtype!(pub struct PersonId);
@@ -179,57 +179,6 @@ impl Person {
         let limit = limit.max(0);
 
         Ok(persons.into_iter().skip(offset).take(limit).collect())
-    }
-}
-
-fn compare_persons(a: &Person, b: &Person, sort_field: &PersonSort) -> std::cmp::Ordering {
-    match sort_field {
-        PersonSort::LastName => cmp_string(&a.last_name, &b.last_name)
-            .then_with(|| cmp_option_string(&a.last_name_prefix, &b.last_name_prefix))
-            .then_with(|| cmp_string(&a.initials, &b.initials))
-            .then_with(|| a.id.cmp(&b.id)),
-        PersonSort::FirstName => cmp_option_string(&a.first_name, &b.first_name)
-            .then_with(|| cmp_string(&a.last_name, &b.last_name))
-            .then_with(|| a.id.cmp(&b.id)),
-        PersonSort::Initials => cmp_string(&a.initials, &b.initials)
-            .then_with(|| cmp_string(&a.last_name, &b.last_name))
-            .then_with(|| a.id.cmp(&b.id)),
-        PersonSort::Gender => cmp_gender(&a.gender, &b.gender)
-            .then_with(|| cmp_string(&a.last_name, &b.last_name))
-            .then_with(|| a.id.cmp(&b.id)),
-        PersonSort::PlaceOfResidence => {
-            cmp_option_string(&a.place_of_residence, &b.place_of_residence)
-                .then_with(|| cmp_string(&a.last_name, &b.last_name))
-                .then_with(|| a.id.cmp(&b.id))
-        }
-        PersonSort::CreatedAt => a
-            .created_at
-            .cmp(&b.created_at)
-            .then_with(|| a.id.cmp(&b.id)),
-        PersonSort::UpdatedAt => a
-            .updated_at
-            .cmp(&b.updated_at)
-            .then_with(|| a.id.cmp(&b.id)),
-    }
-}
-
-fn cmp_string(a: &str, b: &str) -> std::cmp::Ordering {
-    a.to_lowercase().cmp(&b.to_lowercase())
-}
-
-fn cmp_option_string(a: &Option<String>, b: &Option<String>) -> std::cmp::Ordering {
-    cmp_string(a.as_deref().unwrap_or(""), b.as_deref().unwrap_or(""))
-}
-
-fn cmp_gender(a: &Option<Gender>, b: &Option<Gender>) -> std::cmp::Ordering {
-    gender_rank(a).cmp(&gender_rank(b))
-}
-
-fn gender_rank(gender: &Option<Gender>) -> u8 {
-    match gender {
-        None => 0,
-        Some(Gender::Female) => 1,
-        Some(Gender::Male) => 2,
     }
 }
 

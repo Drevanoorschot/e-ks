@@ -1,8 +1,7 @@
 use super::AuthorisedAgentsPath;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, authorised_agents::AuthorisedAgent, filters,
-    list_submitters::ListSubmitter, political_groups::PoliticalGroup,
-    substitute_list_submitters::SubstituteSubmitter,
+    list_submitters::ListSubmitter, political_groups::{PoliticalGroup, PoliticalGroupSteps},
 };
 use askama::Template;
 use axum::{extract::State, response::IntoResponse};
@@ -11,6 +10,7 @@ use axum::{extract::State, response::IntoResponse};
 #[template(path = "authorised_agents/authorised_agents.html")]
 struct AuthorisedAgentsTemplate {
     authorised_agents: Vec<AuthorisedAgent>,
+    steps: PoliticalGroupSteps,
 }
 
 pub async fn list_authorised_agents(
@@ -18,10 +18,22 @@ pub async fn list_authorised_agents(
     context: Context,
     State(store): State<AppStore>,
 ) -> Result<impl IntoResponse, AppError> {
+    let political_group = store.get_political_group()?;
     let authorised_agents = store.get_authorised_agents()?;
+    let list_submitters = store.get_list_submitters()?;
+    let substitute_submitters = store.get_substitute_submitters()?;
+    let steps = PoliticalGroupSteps::new(
+        &political_group,
+        &authorised_agents,
+        &list_submitters,
+        &substitute_submitters,
+    );
 
     Ok(HtmlTemplate(
-        AuthorisedAgentsTemplate { authorised_agents },
+        AuthorisedAgentsTemplate {
+            authorised_agents,
+            steps,
+        },
         context,
     ))
 }
@@ -88,7 +100,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
         let body = response_body_string(response).await;
-        assert!(body.contains(&authorised_agent.edit_path()));
+        assert!(body.contains(&authorised_agent.update_path()));
 
         Ok(())
     }

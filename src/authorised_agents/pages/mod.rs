@@ -17,15 +17,15 @@ mod authorised_agents;
 pub struct AuthorisedAgentsPath;
 
 #[derive(TypedPath)]
-#[typed_path("/political-group/authorised-agents/new", rejection(AppError))]
-pub struct AuthorisedAgentNewPath;
+#[typed_path("/political-group/authorised-agents/create", rejection(AppError))]
+pub struct AuthorisedAgentCreatePath;
 
 #[derive(TypedPath, Deserialize)]
 #[typed_path(
-    "/political-group/authorised-agents/{agent_id}/edit",
+    "/political-group/authorised-agents/{agent_id}/update",
     rejection(AppError)
 )]
-pub struct AuthorisedAgentEditPath {
+pub struct AuthorisedAgentUpdatePath {
     pub agent_id: AuthorisedAgentId,
 }
 
@@ -43,12 +43,12 @@ impl AuthorisedAgent {
         AuthorisedAgentsPath {}.to_string()
     }
 
-    pub fn new_path() -> String {
-        AuthorisedAgentNewPath {}.to_string()
+    pub fn create_path() -> String {
+        AuthorisedAgentCreatePath {}.to_string()
     }
 
-    pub fn edit_path(&self) -> String {
-        AuthorisedAgentEditPath { agent_id: self.id }.to_string()
+    pub fn update_path(&self) -> String {
+        AuthorisedAgentUpdatePath { agent_id: self.id }.to_string()
     }
 
     pub fn delete_path(&self) -> String {
@@ -59,9 +59,9 @@ impl AuthorisedAgent {
 pub fn router() -> Router<AppState> {
     Router::new()
         .typed_get(authorised_agents::list_authorised_agents)
-        .typed_get(authorised_agent_create::new_authorised_agent_form)
-        .typed_post(authorised_agent_create::create_authorised_agent)
-        .typed_get(authorised_agent_update::edit_authorised_agent)
-        .typed_post(authorised_agent_update::update_authorised_agent)
+        .typed_get(authorised_agent_create::create_authorised_agent)
+        .typed_post(authorised_agent_create::create_authorised_agent_submit)
+        .typed_get(authorised_agent_update::update_authorised_agent)
+        .typed_post(authorised_agent_update::update_authorised_agent_submit)
         .typed_post(authorised_agent_delete::delete_authorised_agent)
 }

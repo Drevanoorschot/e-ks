@@ -8,20 +8,21 @@ use axum_extra::extract::Form;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, filters,
     form::{FormData, Validate},
+    list_submitters::ListSubmitter,
     substitute_list_submitters::{SubstituteSubmitter, SubstituteSubmitterForm},
 };
 
-use super::SubstituteSubmitterEditPath;
+use super::SubstituteSubmitterUpdatePath;
 
 #[derive(Template)]
-#[template(path = "substitute_list_submitters/substitute_submitter_update.html")]
+#[template(path = "substitute_list_submitters/update.html")]
 struct SubstituteSubmitterUpdateTemplate {
     substitute_submitter: SubstituteSubmitter,
     form: FormData<SubstituteSubmitterForm>,
 }
 
-pub async fn edit_substitute_submitter(
-    _: SubstituteSubmitterEditPath,
+pub async fn update_substitute_submitter(
+    _: SubstituteSubmitterUpdatePath,
     context: Context,
     substitute_submitter: SubstituteSubmitter,
 ) -> Result<Response, AppError> {
@@ -38,8 +39,8 @@ pub async fn edit_substitute_submitter(
     .into_response())
 }
 
-pub async fn update_substitute_submitter(
-    _: SubstituteSubmitterEditPath,
+pub async fn update_substitute_submitter_submit(
+    _: SubstituteSubmitterUpdatePath,
     context: Context,
     substitute_submitter: SubstituteSubmitter,
     State(store): State<AppStore>,
@@ -57,7 +58,7 @@ pub async fn update_substitute_submitter(
         Ok(substitute_submitter) => {
             substitute_submitter.update(&store).await?;
 
-            Ok(Redirect::to(&SubstituteSubmitter::list_path()).into_response())
+            Ok(Redirect::to(&ListSubmitter::list_path()).into_response())
         }
     }
 }
@@ -74,7 +75,7 @@ mod tests {
     use crate::{
         AppError, AppStore, Context,
         political_groups::PoliticalGroupId,
-        substitute_list_submitters::{SubstituteSubmitter, SubstituteSubmitterId},
+        substitute_list_submitters::SubstituteSubmitterId,
         test_utils::{
             response_body_string, sample_political_group, sample_substitute_submitter,
             sample_substitute_submitter_form,
@@ -82,7 +83,7 @@ mod tests {
     };
 
     #[sqlx::test]
-    async fn edit_substitute_submitter_renders_existing_submitter(
+    async fn update_substitute_submitter_renders_existing_submitter(
         pool: sqlx::PgPool,
     ) -> Result<(), AppError> {
         let store = AppStore::new(pool);
@@ -94,8 +95,8 @@ mod tests {
         political_group.create(&store).await?;
         substitute_submitter.create(&store).await?;
 
-        let response = edit_substitute_submitter(
-            SubstituteSubmitterEditPath { sub_submitter_id },
+        let response = update_substitute_submitter(
+            SubstituteSubmitterUpdatePath { sub_submitter_id },
             Context::new_test_without_db(),
             substitute_submitter.clone(),
         )
@@ -128,8 +129,8 @@ mod tests {
         let mut form = sample_substitute_submitter_form(&csrf_token);
         form.last_name = "Updated".to_string();
 
-        let response = update_substitute_submitter(
-            SubstituteSubmitterEditPath { sub_submitter_id },
+        let response = update_substitute_submitter_submit(
+            SubstituteSubmitterUpdatePath { sub_submitter_id },
             context,
             substitute_submitter.clone(),
             State(store.clone()),
@@ -145,7 +146,7 @@ mod tests {
             .expect("location header")
             .to_str()
             .expect("location header value");
-        assert_eq!(location, SubstituteSubmitter::list_path());
+        assert_eq!(location, ListSubmitter::list_path());
 
         let updated = store.get_substitute_submitter(sub_submitter_id)?;
         assert_eq!(updated.last_name, "Updated");
@@ -171,8 +172,8 @@ mod tests {
         let mut form = sample_substitute_submitter_form(&csrf_token);
         form.last_name = " ".to_string();
 
-        let response = update_substitute_submitter(
-            SubstituteSubmitterEditPath { sub_submitter_id },
+        let response = update_substitute_submitter_submit(
+            SubstituteSubmitterUpdatePath { sub_submitter_id },
             context,
             substitute_submitter.clone(),
             State(store),

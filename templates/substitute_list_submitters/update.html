@@ -1,11 +1,11 @@
 {% extends "components/overlay.html" %}
 
-{% block close_action %}{{ SubstituteSubmitter::list_path() }}{% endblock %}
+{% block close_action %}{{ ListSubmitter::list_path() }}{% endblock %}
 
 {% block overlay_title %}{{ "political_group.edit_substitute_submitter"|trans }}{% endblock %}
 
 {% block overlay_start %}
-<form method="post" action="{{ substitute_submitter.edit_path() }}" class="overlay">
+<form method="post" action="{{ substitute_submitter.update_path() }}" class="overlay">
 <input type="hidden" name="csrf_token" value="{{ form.data.csrf_token }}" />
 {% endblock %}
 
@@ -14,7 +14,7 @@
     <div class="steps-nav">
       <ul>
         <li>
-          <a href="{{ substitute_submitter.edit_path() }}">
+          <a href="{{ substitute_submitter.update_path() }}">
             {{ "political_group.edit_substitute_submitter"|trans }}
           </a>
         </li>

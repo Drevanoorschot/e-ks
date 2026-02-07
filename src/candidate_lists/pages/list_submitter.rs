@@ -7,7 +7,10 @@ use axum_extra::extract::Form;
 
 use crate::{
     AppError, AppStore, Context, HtmlTemplate, InitialEditQuery,
-    candidate_lists::{CandidateList, ListSubmitterForm, pages::EditListSubmitterPath},
+    candidate_lists::{
+        CandidateList, ListSubmitterForm,
+        pages::{UpdateListSubmitterPath, UpdateSubstituteListSubmittersPath},
+    },
     filters,
     form::{FormData, Validate},
     list_submitters::ListSubmitter,
@@ -22,6 +25,7 @@ struct ListSubmitterUpdateTemplate {
     candidate_list: CandidateList,
     list_submitters: Vec<ListSubmitter>,
     substitute_submitters: Vec<SubstituteSubmitter>,
+    form_action: String,
 }
 
 fn render_submitter_form(
@@ -30,6 +34,7 @@ fn render_submitter_form(
     store: &AppStore,
     should_warn: bool,
     form: FormData<ListSubmitterForm>,
+    form_action: String,
 ) -> Result<Response, AppError> {
     let list_submitters = store.get_list_submitters()?;
     let substitute_submitters = store.get_substitute_submitters()?;
@@ -41,14 +46,15 @@ fn render_submitter_form(
             candidate_list,
             list_submitters,
             substitute_submitters,
+            form_action,
         },
         context,
     )
     .into_response())
 }
 
-pub async fn edit_list_submitter_form(
-    _: EditListSubmitterPath,
+pub async fn update_list_submitter(
+    _: UpdateListSubmitterPath,
     context: Context,
     candidate_list: CandidateList,
     State(store): State<AppStore>,
@@ -58,18 +64,51 @@ pub async fn edit_list_submitter_form(
         ListSubmitterForm::from(candidate_list.clone()),
         &context.csrf_tokens,
     );
+    let form_action = candidate_list.update_list_submitter_path();
 
-    render_submitter_form(context, candidate_list, &store, query.should_warn(), form)
+    render_submitter_form(
+        context,
+        candidate_list,
+        &store,
+        query.should_warn(),
+        form,
+        form_action,
+    )
 }
 
-pub async fn update_list_submitter(
-    _: EditListSubmitterPath,
+pub async fn update_substitute_list_submitters(
+    _: UpdateSubstituteListSubmittersPath,
+    context: Context,
+    candidate_list: CandidateList,
+    State(store): State<AppStore>,
+    Query(query): Query<InitialEditQuery>,
+) -> Result<Response, AppError> {
+    let form = FormData::new_with_data(
+        ListSubmitterForm::from(candidate_list.clone()),
+        &context.csrf_tokens,
+    );
+    let form_action = candidate_list.update_substitute_list_submitters_path();
+
+    render_submitter_form(
+        context,
+        candidate_list,
+        &store,
+        query.should_warn(),
+        form,
+        form_action,
+    )
+}
+
+pub async fn update_list_submitter_submit(
+    _: UpdateListSubmitterPath,
     context: Context,
     candidate_list: CandidateList,
     State(store): State<AppStore>,
     Query(query): Query<InitialEditQuery>,
     Form(form): Form<ListSubmitterForm>,
 ) -> Result<Response, AppError> {
+    let form_action = candidate_list.update_list_submitter_path();
+
     match form.validate_update(&candidate_list, &context.csrf_tokens) {
         Err(form_data) => render_submitter_form(
             context,
@@ -77,6 +116,33 @@ pub async fn update_list_submitter(
             &store,
             query.should_warn(),
             form_data,
+            form_action,
+        ),
+        Ok(candidate_list) => {
+            candidate_list.update(&store).await?;
+            Ok(Redirect::to(&candidate_list.view_path()).into_response())
+        }
+    }
+}
+
+pub async fn update_substitute_list_submitters_submit(
+    _: UpdateSubstituteListSubmittersPath,
+    context: Context,
+    candidate_list: CandidateList,
+    State(store): State<AppStore>,
+    Query(query): Query<InitialEditQuery>,
+    Form(form): Form<ListSubmitterForm>,
+) -> Result<Response, AppError> {
+    let form_action = candidate_list.update_substitute_list_submitters_path();
+
+    match form.validate_update(&candidate_list, &context.csrf_tokens) {
+        Err(form_data) => render_submitter_form(
+            context,
+            candidate_list,
+            &store,
+            query.should_warn(),
+            form_data,
+            form_action,
         ),
         Ok(candidate_list) => {
             candidate_list.update(&store).await?;
@@ -108,7 +174,7 @@ mod tests {
     };
 
     #[sqlx::test]
-    async fn edit_list_submitter_renders_submitter_form(
+    async fn update_list_submitter_renders_submitter_form(
         pool: sqlx::PgPool,
     ) -> Result<(), AppError> {
         let store = AppStore::new(pool);
@@ -124,8 +190,8 @@ mod tests {
 
         let context = Context::new(political_group.clone(), Locale::En, CsrfTokens::default());
 
-        let response = edit_list_submitter_form(
-            EditListSubmitterPath {
+        let response = update_list_submitter(
+            UpdateListSubmitterPath {
                 list_id: candidate_list.id,
             },
             context,
@@ -141,7 +207,7 @@ mod tests {
         assert!(body.contains("Submitter of the list"));
         assert!(body.contains("Substitute list submitters"));
         assert!(body.contains("csrf_token"));
-        assert!(body.contains(&candidate_list.edit_list_submitter_path()));
+        assert!(body.contains(&candidate_list.update_list_submitter_path()));
         assert!(body.contains(&list_submitter.last_name));
         assert!(body.contains(&list_submitter.initials));
         assert!(body.contains(&substitute_submitter.last_name));
@@ -183,8 +249,8 @@ mod tests {
             ],
             csrf_token,
         };
-        let response = update_list_submitter(
-            EditListSubmitterPath {
+        let response = update_list_submitter_submit(
+            UpdateListSubmitterPath {
                 list_id: candidate_list.id,
             },
             context,
@@ -245,8 +311,8 @@ mod tests {
             substitute_list_submitter_ids: vec![substitute_submitter.id],
             csrf_token: TokenValue("invalid".to_string()),
         };
-        let response = update_list_submitter(
-            EditListSubmitterPath {
+        let response = update_list_submitter_submit(
+            UpdateListSubmitterPath {
                 list_id: candidate_list.id,
             },
             context,

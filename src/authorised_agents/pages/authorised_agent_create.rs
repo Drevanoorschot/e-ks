@@ -5,7 +5,7 @@ use axum::{
 };
 use axum_extra::extract::Form;
 
-use super::AuthorisedAgentNewPath;
+use super::AuthorisedAgentCreatePath;
 use crate::{
     AppError, AppStore, Context, HtmlTemplate,
     authorised_agents::{AuthorisedAgent, AuthorisedAgentForm},
@@ -14,13 +14,13 @@ use crate::{
 };
 
 #[derive(Template)]
-#[template(path = "authorised_agents/authorised_agent_create.html")]
+#[template(path = "authorised_agents/create.html")]
 struct AuthorisedAgentCreateTemplate {
     form: FormData<AuthorisedAgentForm>,
 }
 
-pub async fn new_authorised_agent_form(
-    _: AuthorisedAgentNewPath,
+pub async fn create_authorised_agent(
+    _: AuthorisedAgentCreatePath,
     context: Context,
 ) -> Result<impl IntoResponse, AppError> {
     Ok(HtmlTemplate(
@@ -31,8 +31,8 @@ pub async fn new_authorised_agent_form(
     ))
 }
 
-pub async fn create_authorised_agent(
-    _: AuthorisedAgentNewPath,
+pub async fn create_authorised_agent_submit(
+    _: AuthorisedAgentCreatePath,
     context: Context,
     State(store): State<AppStore>,
     Form(form): Form<AuthorisedAgentForm>,
@@ -68,14 +68,14 @@ mod tests {
     };
 
     #[sqlx::test]
-    async fn new_authorised_agent_form_renders_csrf_field(pool: PgPool) -> Result<(), AppError> {
+    async fn create_authorised_agent_renders_csrf_field(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let group_id = PoliticalGroupId::new();
         let political_group = sample_political_group(group_id);
         political_group.create(&store).await?;
 
         let response =
-            new_authorised_agent_form(AuthorisedAgentNewPath {}, Context::new_test_without_db())
+            create_authorised_agent(AuthorisedAgentCreatePath {}, Context::new_test_without_db())
                 .await
                 .unwrap()
                 .into_response();
@@ -83,7 +83,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         let body = response_body_string(response).await;
         assert!(body.contains("name=\"csrf_token\""));
-        assert!(body.contains(&format!("action=\"{}\"", AuthorisedAgent::new_path())));
+        assert!(body.contains(&format!("action=\"{}\"", AuthorisedAgent::create_path())));
 
         Ok(())
     }
@@ -99,8 +99,8 @@ mod tests {
         let csrf_token = context.csrf_tokens.issue().value;
         let form = sample_authorised_agent_form(&csrf_token);
 
-        let response = create_authorised_agent(
-            AuthorisedAgentNewPath {},
+        let response = create_authorised_agent_submit(
+            AuthorisedAgentCreatePath {},
             context,
             State(store.clone()),
             Form(form),
@@ -137,11 +137,15 @@ mod tests {
         let mut form = sample_authorised_agent_form(&csrf_token);
         form.last_name = " ".to_string();
 
-        let response =
-            create_authorised_agent(AuthorisedAgentNewPath {}, context, State(store), Form(form))
-                .await
-                .unwrap()
-                .into_response();
+        let response = create_authorised_agent_submit(
+            AuthorisedAgentCreatePath {},
+            context,
+            State(store),
+            Form(form),
+        )
+        .await
+        .unwrap()
+        .into_response();
 
         assert_eq!(response.status(), StatusCode::OK);
         let body = response_body_string(response).await;

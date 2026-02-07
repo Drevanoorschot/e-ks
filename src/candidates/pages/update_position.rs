@@ -13,18 +13,18 @@ use crate::{
     form::{FormData, Validate},
 };
 
-use super::EditCandidatePositionPath;
+use super::UpdateCandidatePositionPath;
 
 #[derive(Template)]
-#[template(path = "candidates/edit_position.html")]
-struct EditCandidatePositionTemplate {
+#[template(path = "candidates/update_position.html")]
+struct UpdateCandidatePositionTemplate {
     full_list: FullCandidateList,
     candidate: Candidate,
     form: FormData<CandidatePositionForm>,
 }
 
-pub async fn edit_candidate_position(
-    _: EditCandidatePositionPath,
+pub async fn update_candidate_position(
+    _: UpdateCandidatePositionPath,
     context: Context,
     full_list: FullCandidateList,
     candidate: Candidate,
@@ -42,7 +42,7 @@ pub async fn edit_candidate_position(
 
     // Implementation for editing candidate position goes here
     Ok(HtmlTemplate(
-        EditCandidatePositionTemplate {
+        UpdateCandidatePositionTemplate {
             candidate: candidate.clone(),
             full_list,
             form,
@@ -51,8 +51,8 @@ pub async fn edit_candidate_position(
     ))
 }
 
-pub async fn update_candidate_position(
-    _: EditCandidatePositionPath,
+pub async fn update_candidate_position_submit(
+    _: UpdateCandidatePositionPath,
     context: Context,
     full_list: FullCandidateList,
     candidate: Candidate,
@@ -67,7 +67,7 @@ pub async fn update_candidate_position(
 
     match form.validate_update(&candidate_position, &context.csrf_tokens) {
         Err(form_data) => Ok(HtmlTemplate(
-            EditCandidatePositionTemplate {
+            UpdateCandidatePositionTemplate {
                 candidate,
                 full_list,
                 form: form_data,
@@ -130,7 +130,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn edit_candidate_position_renders_form(pool: PgPool) -> Result<(), AppError> {
+    async fn update_candidate_position_renders_form(pool: PgPool) -> Result<(), AppError> {
         let store = AppStore::new(pool);
         let list_id = CandidateListId::new();
         let list = sample_candidate_list(list_id);
@@ -143,8 +143,8 @@ mod tests {
         let full_list = FullCandidateList::get(&store, list_id).expect("candidate list");
         let candidate = CandidateList::get_candidate(&store, list_id, person.id).await?;
 
-        let response = edit_candidate_position(
-            EditCandidatePositionPath {
+        let response = update_candidate_position(
+            UpdateCandidatePositionPath {
                 list_id,
                 person_id: person.id,
             },
@@ -157,7 +157,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
         let body = response_body_string(response).await;
-        assert!(body.contains(&candidate.edit_position_path()));
+        assert!(body.contains(&candidate.update_position_path()));
         assert!(body.contains("Jansen"));
 
         Ok(())
@@ -187,8 +187,8 @@ mod tests {
         let csrf_token = context.csrf_tokens.issue().value;
         let form = sample_position_form(&csrf_token, 2, "move");
 
-        let response = update_candidate_position(
-            EditCandidatePositionPath {
+        let response = update_candidate_position_submit(
+            UpdateCandidatePositionPath {
                 list_id,
                 person_id: person_a.id,
             },
@@ -235,8 +235,8 @@ mod tests {
         let csrf_token = context.csrf_tokens.issue().value;
         let form = sample_position_form(&csrf_token, 1, "remove");
 
-        let response = update_candidate_position(
-            EditCandidatePositionPath {
+        let response = update_candidate_position_submit(
+            UpdateCandidatePositionPath {
                 list_id,
                 person_id: person_a.id,
             },
@@ -284,8 +284,8 @@ mod tests {
         let csrf_token = TokenValue("invalid".to_string());
         let form = sample_position_form(&csrf_token, 2, "move");
 
-        let response = update_candidate_position(
-            EditCandidatePositionPath {
+        let response = update_candidate_position_submit(
+            UpdateCandidatePositionPath {
                 list_id,
                 person_id: person_a.id,
             },
