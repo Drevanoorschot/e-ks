@@ -35,16 +35,12 @@ async fn run(listener: TcpListener) -> Result<(), AppError> {
     #[cfg(feature = "fixtures")]
     {
         if std::env::var("LOAD_FIXTURES").is_ok() {
-            // Run database migrations
-            sqlx::migrate!()
-                .run(&state.pool)
-                .await
-                .expect("Failed to run migrations");
-
             // Load fixtures
-            eks::fixtures::load(&state.pool).await?;
+            eks::fixtures::load(&state.store).await?;
         }
     }
+
+    state.store.load().await?;
 
     // Start the server
     let router = router::create(state.clone()).with_state(state.clone());

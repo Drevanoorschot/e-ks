@@ -7,8 +7,7 @@ use crate::TokenValue;
 pub struct EmptyFormValue;
 
 #[derive(Default, Serialize, Deserialize, Clone, Debug, Validate)]
-#[validate(target = "EmptyFormValue")]
-#[serde(default)]
+#[validate(target = "EmptyFormValue", timestamps = false)]
 pub struct EmptyForm {
     #[validate(csrf)]
     pub csrf_token: TokenValue,
@@ -18,13 +17,5 @@ pub struct EmptyForm {
 impl EmptyForm {
     pub fn new(csrf_token: TokenValue) -> Self {
         EmptyForm { csrf_token }
-    }
-}
-
-impl From<EmptyFormValue> for EmptyForm {
-    fn from(_: EmptyFormValue) -> Self {
-        EmptyForm {
-            csrf_token: Default::default(),
-        }
     }
 }

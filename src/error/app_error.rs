@@ -36,6 +36,9 @@ pub enum AppError {
     MissingEnvVar(&'static str),
     ConfigLoadError(String),
     ServerError(std::io::Error),
+
+    NoStorageConfigured,
+    IntegrityViolation,
 }
 
 impl Display for AppError {
@@ -57,6 +60,8 @@ impl Display for AppError {
             AppError::QueryRejection(err) => write!(f, "Query error: {err}"),
             AppError::NotFound(msg) => write!(f, "{msg}"),
             AppError::GenericNotFound => write!(f, "Page not found"),
+            AppError::NoStorageConfigured => write!(f, "No event storage configured"),
+            AppError::IntegrityViolation => write!(f, "Data integrity violation"),
         }
     }
 }
@@ -138,7 +143,6 @@ mod tests {
         },
         response::IntoResponse,
     };
-    use sqlx::PgPool;
 
     #[test]
     fn displays_not_found_message() {
@@ -181,8 +185,8 @@ mod tests {
             .unwrap()
     }
 
-    #[sqlx::test]
-    async fn app_error_variants_convert_to_error_response(pool: PgPool) {
+    #[tokio::test]
+    async fn app_error_variants_convert_to_error_response() {
         let form_rejection: FormRejection = InvalidFormContentType::default().into();
         let json_rejection: JsonRejection = MissingJsonContentType::default().into();
         let multipart_rejection = Multipart::from_request(get_multipart_rejection_request(), &())
@@ -229,7 +233,7 @@ mod tests {
             let response = error_response.into_response();
             let error_template = response.extensions().get::<ErrorTemplate>().unwrap();
             let content = error_template.title.clone();
-            let context = Context::new_test(pool.clone()).await;
+            let context = Context::new_test().await;
             let html_response = (
                 error_template.status_code,
                 HtmlTemplate(error_template, context),

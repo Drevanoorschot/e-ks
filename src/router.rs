@@ -7,7 +7,8 @@ use axum::{Router, middleware, routing::get};
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 
 use crate::{
-    AppState, candidate_lists, locale, pages, persons, political_groups, render_error_pages, submit,
+    AppState, authorised_agents, candidate_lists, candidates, list_submitters, locale, pages,
+    persons, political_groups, render_error_pages, submit, substitute_list_submitters,
 };
 
 pub fn create(state: AppState) -> Router<AppState> {
@@ -15,9 +16,12 @@ pub fn create(state: AppState) -> Router<AppState> {
         .route("/", get(pages::index))
         .merge(persons::router())
         .merge(political_groups::router())
+        .merge(authorised_agents::router())
+        .merge(list_submitters::router())
+        .merge(substitute_list_submitters::router())
         .merge(submit::router())
         .merge(candidate_lists::router())
-        .merge(candidate_lists::candidate_router())
+        .merge(candidates::router())
         .merge(locale::locale_router());
 
     #[cfg(feature = "dev-features")]
@@ -73,14 +77,13 @@ mod tests {
         body::Body,
         http::{Request, StatusCode},
     };
-    use sqlx::PgPool;
     use tower::ServiceExt;
 
     use crate::{AppState, test_utils::response_body_string};
 
-    #[sqlx::test]
-    async fn index_route_renders_index(pool: PgPool) {
-        let state = AppState::new_for_tests(&pool).await;
+    #[tokio::test]
+    async fn index_route_renders_index() {
+        let state = AppState::new_for_tests().await;
         let app: Router = create(state.clone()).with_state(state);
 
         let request = Request::builder().uri("/").body(Body::empty()).unwrap();
@@ -91,9 +94,9 @@ mod tests {
         assert!(body.contains("Kiesraad - Kandidaatstelling"));
     }
 
-    #[sqlx::test]
-    async fn fallback_route_renders_not_found(pool: PgPool) {
-        let state = AppState::new_for_tests(&pool).await;
+    #[tokio::test]
+    async fn fallback_route_renders_not_found() {
+        let state = AppState::new_for_tests().await;
         let app: Router = create(state.clone()).with_state(state);
 
         let request = Request::builder()

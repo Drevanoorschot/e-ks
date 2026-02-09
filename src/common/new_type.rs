@@ -8,11 +8,10 @@ macro_rules! id_newtype {
         #[repr(transparent)]
         #[derive(
             Debug, Clone, Copy, PartialEq, Eq, Hash,
+            Ord, PartialOrd,
             serde::Serialize, serde::Deserialize,
-            sqlx::Type,
         )]
         #[serde(transparent)]
-        #[sqlx(transparent)]
         $vis struct $name(uuid::Uuid);
 
         impl Default for $name {

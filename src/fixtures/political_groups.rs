@@ -1,125 +1,125 @@
-use chrono::Utc;
-use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
-    AppError,
-    political_groups::{
-        self, AuthorisedAgent, AuthorisedAgentId, ListSubmitter, ListSubmitterId, PoliticalGroup,
-        PoliticalGroupId, SubstituteSubmitter, SubstituteSubmitterId,
-    },
+    AppError, AppStore, DisplayName, DutchAddress, FullName, HouseNumber, HouseNumberAddition,
+    Initials, LastName, LastNamePrefix, LegalName, Locality, PostalCode, StreetName, UtcDateTime,
+    authorised_agents::{AuthorisedAgent, AuthorisedAgentId},
+    list_submitters::{ListSubmitter, ListSubmitterId},
+    political_groups::{PoliticalGroup, PoliticalGroupId},
+    substitute_list_submitters::{SubstituteSubmitter, SubstituteSubmitterId},
 };
 
-pub async fn load(db: &PgPool) -> Result<(), AppError> {
+pub async fn load(store: &AppStore) -> Result<(), AppError> {
     let political_group_id: PoliticalGroupId =
         Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_political_group").into();
 
-    let agent_1_id: AuthorisedAgentId =
-        Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_authorised_agent_1").into();
-    let agent_2_id: AuthorisedAgentId =
-        Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_authorised_agent_2").into();
+    let agent_id: AuthorisedAgentId =
+        Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_authorised_agent").into();
 
-    let submitter_1_id: ListSubmitterId =
-        Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_list_submitter_1").into();
-    let submitter_2_id: ListSubmitterId =
-        Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_list_submitter_2").into();
-    let substitute_submitter_id: SubstituteSubmitterId =
+    let submitter_id: ListSubmitterId =
+        Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_list_submitter").into();
+
+    let substitute_submitter_id_1: SubstituteSubmitterId =
         Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_substitute_submitter_1").into();
+    let substitute_submitter_id_2: SubstituteSubmitterId =
+        Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_substitute_submitter_2").into();
 
     let political_group = PoliticalGroup {
         id: political_group_id,
         long_list_allowed: None,
-        legal_name: Some("Kiesraad Demo Partij".to_string()),
-        display_name: Some("Kiesraad Demo".to_string()),
-        created_at: Utc::now(),
-        updated_at: Utc::now(),
+        legal_name: Some(
+            "Kiesraad Demo Partij"
+                .parse::<LegalName>()
+                .expect("legal name"),
+        ),
+        display_name: Some(
+            "Kiesraad Demo"
+                .parse::<DisplayName>()
+                .expect("display name"),
+        ),
+        created_at: UtcDateTime::now(),
+        updated_at: UtcDateTime::now(),
     };
 
-    let political_group = political_groups::create_political_group(db, &political_group).await?;
+    political_group.update(store).await?;
 
-    political_groups::create_authorised_agent(
-        db,
-        political_group.id,
-        &AuthorisedAgent {
-            id: agent_1_id,
-            last_name: "Jansen".to_string(),
-            last_name_prefix: Some("de".to_string()),
-            initials: "A.B.".to_string(),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
+    AuthorisedAgent {
+        id: agent_id,
+        name: FullName {
+            last_name: "Jansen".parse::<LastName>().expect("last name"),
+            last_name_prefix: Some("de".parse::<LastNamePrefix>().expect("last name prefix")),
+            initials: "A.B.".parse::<Initials>().expect("initials"),
         },
-    )
+        created_at: UtcDateTime::now(),
+        updated_at: UtcDateTime::now(),
+    }
+    .create(store)
     .await?;
 
-    political_groups::create_authorised_agent(
-        db,
-        political_group.id,
-        &AuthorisedAgent {
-            id: agent_2_id,
-            last_name: "Visser".to_string(),
+    ListSubmitter {
+        id: submitter_id,
+        name: FullName {
+            last_name: "Bos".parse::<LastName>().expect("last name"),
             last_name_prefix: None,
-            initials: "C.D.".to_string(),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
+            initials: "E.F.".parse::<Initials>().expect("initials"),
         },
-    )
+        address: DutchAddress {
+            locality: Some("Rotterdam".parse::<Locality>().expect("locality")),
+            postal_code: Some("3011 CC".parse::<PostalCode>().expect("postal code")),
+            house_number: Some("5".parse::<HouseNumber>().expect("house number")),
+            house_number_addition: Some(
+                "B".parse::<HouseNumberAddition>()
+                    .expect("house number addition"),
+            ),
+            street_name: Some("Coolsingel".parse::<StreetName>().expect("street name")),
+        },
+        created_at: UtcDateTime::now(),
+        updated_at: UtcDateTime::now(),
+    }
+    .create(store)
     .await?;
 
-    political_groups::create_list_submitter(
-        db,
-        political_group.id,
-        &ListSubmitter {
-            id: submitter_1_id,
-            last_name: "Bos".to_string(),
-            last_name_prefix: None,
-            initials: "E.F.".to_string(),
-            locality: Some("Rotterdam".to_string()),
-            postal_code: Some("3011 CC".to_string()),
-            house_number: Some("5".to_string()),
-            house_number_addition: Some("B".to_string()),
-            street_name: Some("Coolsingel".to_string()),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
+    SubstituteSubmitter {
+        id: substitute_submitter_id_1,
+        name: FullName {
+            last_name: "Smit".parse::<LastName>().expect("last name"),
+            last_name_prefix: Some("van".parse::<LastNamePrefix>().expect("last name prefix")),
+            initials: "G.H.".parse::<Initials>().expect("initials"),
         },
-    )
-    .await?;
-
-    political_groups::create_list_submitter(
-        db,
-        political_group.id,
-        &ListSubmitter {
-            id: submitter_2_id,
-            last_name: "Smit".to_string(),
-            last_name_prefix: Some("van".to_string()),
-            initials: "G.H.".to_string(),
-            locality: Some("Den Haag".to_string()),
-            postal_code: Some("2511 DD".to_string()),
-            house_number: Some("18".to_string()),
+        address: DutchAddress {
+            locality: Some("Den Haag".parse::<Locality>().expect("locality")),
+            postal_code: Some("2511 DD".parse::<PostalCode>().expect("postal code")),
+            house_number: Some("18".parse::<HouseNumber>().expect("house number")),
             house_number_addition: None,
-            street_name: Some("Spui".to_string()),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
+            street_name: Some("Spui".parse::<StreetName>().expect("street name")),
         },
-    )
+        created_at: UtcDateTime::now(),
+        updated_at: UtcDateTime::now(),
+    }
+    .create(store)
     .await?;
 
-    political_groups::create_substitute_submitter(
-        db,
-        political_group.id,
-        &SubstituteSubmitter {
-            id: substitute_submitter_id,
-            last_name: "De Jong".to_string(),
+    SubstituteSubmitter {
+        id: substitute_submitter_id_2,
+        name: FullName {
+            last_name: "Jong".parse::<LastName>().expect("last name"),
             last_name_prefix: None,
-            initials: "I.J.".to_string(),
-            locality: Some("Utrecht".to_string()),
-            postal_code: Some("3511 AA".to_string()),
-            house_number: Some("21".to_string()),
-            house_number_addition: Some("C".to_string()),
-            street_name: Some("Oudegracht".to_string()),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
+            initials: "I.J.".parse::<Initials>().expect("initials"),
         },
-    )
+        address: DutchAddress {
+            locality: Some("Utrecht".parse::<Locality>().expect("locality")),
+            postal_code: Some("3511 AA".parse::<PostalCode>().expect("postal code")),
+            house_number: Some("21".parse::<HouseNumber>().expect("house number")),
+            house_number_addition: Some(
+                "C".parse::<HouseNumberAddition>()
+                    .expect("house number addition"),
+            ),
+            street_name: Some("Oudegracht".parse::<StreetName>().expect("street name")),
+        },
+        created_at: UtcDateTime::now(),
+        updated_at: UtcDateTime::now(),
+    }
+    .create(store)
     .await?;
 
     Ok(())
@@ -127,48 +127,18 @@ pub async fn load(db: &PgPool) -> Result<(), AppError> {
 
 #[cfg(test)]
 mod tests {
-    use sqlx::{PgConnection, PgPool};
-
     use super::*;
-
-    pub async fn get_political_groups(
-        conn: &mut PgConnection,
-    ) -> Result<Vec<PoliticalGroup>, sqlx::Error> {
-        sqlx::query_as!(
-            PoliticalGroup,
-            r#"
-            SELECT *
-            FROM political_groups
-            ORDER BY created_at ASC
-            "#,
-        )
-        .fetch_all(conn)
-        .await
-    }
+    use sqlx::PgPool;
 
     #[sqlx::test]
     async fn test_load(pool: PgPool) {
-        let mut conn = pool.acquire().await.unwrap();
-        load(&pool).await.unwrap();
+        let store = AppStore::new(pool);
+        load(&store).await.unwrap();
 
-        let groups = get_political_groups(&mut conn).await.unwrap();
-        assert_eq!(groups.len(), 1);
+        let list_submitters = store.get_list_submitters().unwrap();
+        assert_eq!(list_submitters.len(), 1);
 
-        let list_submitters = political_groups::get_list_submitters(&pool, groups[0].id)
-            .await
-            .unwrap();
-        assert_eq!(list_submitters.len(), 2);
-
-        let substitute_submitters =
-            political_groups::get_substitute_submitters(&pool, groups[0].id)
-                .await
-                .unwrap();
-        assert_eq!(substitute_submitters.len(), 1);
-
-        let authorised_count = political_groups::get_authorised_agents(&pool, groups[0].id)
-            .await
-            .unwrap()
-            .len();
-        assert_eq!(authorised_count, 2);
+        let substitute_submitters = store.get_substitute_submitters().unwrap();
+        assert_eq!(substitute_submitters.len(), 2);
     }
 }
