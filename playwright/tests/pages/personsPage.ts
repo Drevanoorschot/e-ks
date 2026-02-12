@@ -14,7 +14,7 @@ export class PersonsPage {
 
   async addPersons(candidates: Candidate[]) {
     for (const candidate of candidates) {
-      await this.page.getByRole("link", { name: "Persoon toevoegen" }).click();
+      await this.page.getByRole("link", { name: "Kandidaat toevoegen" }).click();
       await this.page.getByLabel("Voorletters").fill(candidate.initials);
       await this.page
         .getByLabel("Voorvoegsel")
