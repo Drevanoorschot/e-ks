@@ -37,5 +37,5 @@ personal_details: Persoonlijke gegevens
 representative: Gemachtigde van kandidaat
 title: Alle kandidaten
 total: "<strong>{}</strong> kandidaten toegevoegd"
-view: 
+view:
   empty: Geen kandidaten gevonden.

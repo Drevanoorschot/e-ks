@@ -18,8 +18,8 @@ edit_substitute_submitter: Gegevens vervangers voor herstel verzuimen aanpassen
 general_information: Algemeen
 legal_name: Volledige statutaire naam
 list_submitter_data: Gegevens lijstinleveraar
-list_type: 'Type lijstaanduiding:''
-long_list_allowed: 'Uw partij heeft bij de vorige verkiezing 16 zetels of meer behaald:'
+list_type: "Type lijstaanduiding:"
+long_list_allowed: "Uw partij heeft bij de vorige verkiezing 16 zetels of meer behaald:"
 no_authorised_agents: Geen gemachtigden
 no_list_submitters: Geen lijstinleveraars
 no_substitute_submitters: Geen vervangers voor herstel verzuimen
