@@ -15,12 +15,12 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{AppStore, fixtures::load};
+    use crate::{AppStore, fixtures::load, store::test_event_crypto};
     use sqlx::PgPool;
 
     #[sqlx::test]
     async fn test_load_all_fixtures(pool: PgPool) {
-        let store = AppStore::new(pool);
+        let store = AppStore::new(pool, test_event_crypto());
         load(&store).await.unwrap();
         let persons = crate::persons::Person::list(
             &store,

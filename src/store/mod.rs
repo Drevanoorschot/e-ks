@@ -8,14 +8,19 @@ use crate::{
     persons::{Person, PersonId},
     political_groups::PoliticalGroup,
     substitute_list_submitters::{SubstituteSubmitter, SubstituteSubmitterId},
+    AppError,
 };
 
+mod crypto;
 mod database;
 mod event;
+mod filesystem;
 mod getters;
+mod persistence;
 mod reducer;
 
-pub use event::AppEvent;
+pub use event::{AppEvent, StoreEvent};
+pub use crypto::EventCrypto;
 
 #[cfg(test)]
 mod tests;
@@ -35,19 +40,30 @@ pub struct AppStoreData {
 #[derive(Clone)]
 pub enum AppStorePersistence {
     Database(sqlx::PgPool),
+    Filesystem(std::path::PathBuf),
     None,
 }
 
 #[derive(Clone)]
 pub struct AppStore {
     pub persistence: AppStorePersistence,
+    crypto: Arc<EventCrypto>,
     data: Arc<parking_lot::RwLock<AppStoreData>>,
 }
 
 impl AppStore {
-    pub fn new(pool: sqlx::PgPool) -> Self {
+    pub fn new(pool: sqlx::PgPool, crypto: Arc<EventCrypto>) -> Self {
         AppStore {
             persistence: AppStorePersistence::Database(pool),
+            crypto,
+            data: Default::default(),
+        }
+    }
+
+    pub fn new_filesystem(path: std::path::PathBuf, crypto: Arc<EventCrypto>) -> Self {
+        AppStore {
+            persistence: AppStorePersistence::Filesystem(path),
+            crypto,
             data: Default::default(),
         }
     }
@@ -59,6 +75,7 @@ impl AppStore {
 
         let store = AppStore {
             persistence: AppStorePersistence::None,
+            crypto: test_event_crypto(),
             data: Default::default(),
         };
 
@@ -66,4 +83,25 @@ impl AppStore {
 
         store
     }
+
+    fn encrypt_event_payload(&self, payload: &AppEvent) -> Result<Vec<u8>, AppError> {
+        let serialized =
+            postcard::to_stdvec(payload).map_err(|_| AppError::InternalServerError)?;
+        self.crypto.encrypt(&serialized)
+    }
+
+    fn decrypt_event_payload(&self, payload: &[u8]) -> Result<AppEvent, AppError> {
+        let decrypted = self.crypto.decrypt(payload)?;
+        postcard::from_bytes(&decrypted).map_err(|_| AppError::InternalServerError)
+    }
+}
+
+#[cfg(test)]
+pub fn test_event_crypto() -> Arc<EventCrypto> {
+    use secrecy::SecretBox;
+
+    Arc::new(
+        EventCrypto::new(SecretBox::new(Box::new(vec![0u8; crate::constants::EVENT_ENCRYPTION_KEY_LEN])))
+            .expect("test crypto"),
+    )
 }

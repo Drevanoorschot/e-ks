@@ -27,6 +27,7 @@ lcov.info
 
 /frontend/static/*
 /tools
+/data
 /bin/esbuild
 /bin/biome
 /bin/bag-service

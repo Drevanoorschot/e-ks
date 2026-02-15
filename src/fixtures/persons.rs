@@ -130,14 +130,14 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{pagination::SortDirection, persons::PersonSort};
+    use crate::{pagination::SortDirection, persons::PersonSort, store::test_event_crypto};
     use sqlx::PgPool;
 
     use super::*;
 
     #[sqlx::test]
     async fn test_load(pool: PgPool) {
-        let store = AppStore::new(pool);
+        let store = AppStore::new(pool, test_event_crypto());
         load(&store).await.unwrap();
         let persons =
             crate::persons::Person::list(&store, 50, 0, &PersonSort::LastName, &SortDirection::Asc)

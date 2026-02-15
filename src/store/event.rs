@@ -10,7 +10,7 @@ use crate::{
     substitute_list_submitters::{SubstituteSubmitter, SubstituteSubmitterId},
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AppEvent {
     UpdatePoliticalGroup(PoliticalGroup),
     CreatePerson(Person),
@@ -77,4 +77,11 @@ pub enum AppEvent {
         substitute_submitter_id: SubstituteSubmitterId,
         updated_at: UtcDateTime,
     },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StoreEvent {
+    pub event_id: i64,
+    pub created_at: UtcDateTime,
+    pub payload: AppEvent,
 }
