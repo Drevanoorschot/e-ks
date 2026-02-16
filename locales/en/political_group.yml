@@ -25,6 +25,8 @@ no_list_submitters: No list submitters
 no_substitute_submitters: No substitute submitters
 select_default_list_submitter_info: The list submitter is the only person authorised to submit the candidate list and to remedy omissions. A list submitter can be selected for each candidate list.
 select_default_substitute_submitter_info: Select one or more substitute(s) for remedying omissions.
+multiple_submitter_info: When creating multiple lists, it is possible to assign a different list submitter per list. This is action can be performed at the list itself.
+substitute_submitters_info: The central electoral committee verifies the documents that get submitted on nomination day. In case of omissions, you will receive a written notice. This notice will also mention the deadline to rectify the omissions.
 substitute_submitter_data: Substitute submitter data
 title: Political group
 type:
