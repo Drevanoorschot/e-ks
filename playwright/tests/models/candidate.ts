@@ -1,3 +1,5 @@
+import type { AuthorisedPerson } from "./authorisedPerson";
+
 export interface Candidate {
   initials: string;
   lastNamePrefix?: string;
@@ -10,4 +12,6 @@ export interface Candidate {
   houseNumberAddition?: string;
   streetName?: string;
   locality?: string;
+  countryCode?: string;
+  authorisedPerson?: AuthorisedPerson;
 }
