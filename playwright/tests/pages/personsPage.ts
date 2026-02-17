@@ -27,19 +27,22 @@ export class PersonsPage {
       await this.page
         .getByRole("textbox", { name: "Geboortedatum" })
         .fill(candidate.dateOfBirth ?? "");
+      await this.page.locator("body").click();
 
-      await this.page
-        .getByRole("button", { name: "Opslaan en verder" })
-        .click();
+      await this.page.getByRole("button", { name: "Volgende" }).click();
+
       await this.page
         .getByRole("textbox", { name: "Postcode" })
         .fill(candidate.postalCode ?? "");
       await this.page
         .getByRole("textbox", { name: "Huisnummer", exact: true })
-        .pressSequentially(candidate.houseNumber ?? "");
-      await this.page
-        .getByRole("textbox", { name: "Huisnummer toevoeging", exact: true })
-        .press("Tab");
+        .fill(candidate.houseNumber ?? "");
+      await this.page.getByRole("textbox", {
+        name: "Huisnummer toevoeging",
+        exact: true,
+      });
+      await this.page.locator("body").click();
+
       await expect(
         this.page.getByRole("textbox", { name: "Straatnaam" }),
       ).toHaveValue(candidate.streetName ?? "");
@@ -47,9 +50,7 @@ export class PersonsPage {
         this.page.getByRole("combobox", { name: "Woonplaats" }),
       ).toHaveValue(candidate.locality ?? "");
 
-      await this.page
-        .getByRole("button", { name: "Opslaan en sluiten" })
-        .click();
+      await this.page.getByRole("button", { name: "Toevoegen" }).click();
     }
   }
 
