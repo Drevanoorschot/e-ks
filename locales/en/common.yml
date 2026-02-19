@@ -4,7 +4,7 @@ electoral_districts: Electoral districts
 general_information: General Information
 general_information_description:
   basic: Provide information about the political group
-  submitter: Provide information information about the submitter of the list
+  submitter: Provide information about the submitter of the list
 home: Home
 no_label: "No"
 save_success: saved
@@ -15,6 +15,7 @@ submit_description:
   download_documents: Download all required documents
   submit: Submit the candidate lists
   view_follow_up_steps: View follow-up steps
+submit_instruction: Perform this step at the latest on nomination day
 title: Kiesraad - Kandidaatstelling
 version: Version
 yes_label: "Yes"

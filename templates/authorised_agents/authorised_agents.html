@@ -16,12 +16,12 @@
   <div>
     <h2>{{ "political_group.authorised_agent_data"|trans }}</h2>
 
-    <div class="alert alert-info">
+    <p class="info">
       {{ "political_group.authorised_agent_info"|trans }}
-    </div>
+    </p>
 
     {% if authorised_agents.is_empty() %}
-      <p>{{ "political_group.no_authorised_agents"|trans }}</p>
+      <p class="mt-md font-italic">{{ "political_group.no_authorised_agents"|trans }}</p>
     {% else %}
       {% for agent in authorised_agents %}
       <a href="{{ agent.update_path() }}" class="person-block">
