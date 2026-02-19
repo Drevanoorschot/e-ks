@@ -37,6 +37,9 @@ async fn main() -> Result<()> {
         tool.verify_installed(&platform, bin_dir).await?;
     }
 
+    println!("🚀 Building djlint Docker container...");
+    config.commands.build_djlint_docker_image.run().await?;
+
     println!("🚀 Setting up Docker containers...");
     stop_running_containers().await?;
 
@@ -84,6 +87,7 @@ struct CommandConfig {
 struct CommandsConfig {
     docker_compose_rm: CommandConfig,
     docker_compose_up: CommandConfig,
+    build_djlint_docker_image: CommandConfig,
     install_cargo_watch: CommandConfig,
     install_cargo_sqlx: CommandConfig,
     migrate_database: CommandConfig,
@@ -106,8 +110,17 @@ async fn load_config() -> Result<SetupConfig> {
 
 impl CommandConfig {
     async fn run(&self) -> Result<()> {
+        // replace __UID__ and __GID__ in args with the current user's UID and GID
+        let uid: u16 = std::env::var("UID").ok().and_then(|s| s.parse().ok()).unwrap_or_else(|| 1000);
+        let gid: u16 = std::env::var("GID").ok().and_then(|s| s.parse().ok()).unwrap_or_else(|| 1000);
+        let args: Vec<String> = self
+            .args
+            .iter()
+            .map(|arg| arg.replace("__UID__", &uid.to_string()).replace("__GID__", &gid.to_string()))
+            .collect();
+
         let status = Command::new(&self.command)
-            .args(&self.args)
+            .args(&args)
             .status()
             .await?;
 
@@ -125,11 +138,31 @@ impl ToolConfig {
 
         if fs::try_exists(&target).await? {
             println!("✅ {} already installed", self.name);
+
+            let output = Command::new(&target)
+                .arg("--version")
+                .output()
+                .await
+                .context(format!("check version of installed {}", self.name))?;
+
+            let installed_version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !installed_version.contains(&self.version) {
+                println!(
+                    "⚠️  {} version mismatch: installed {}, expected {}",
+                    self.name, installed_version, self.version
+                );
+                self.install(platform, &target)
+                    .await
+                    .context(format!("re-install {}", self.name))?;
+
+                println!("✅ {} updated to version {}", self.name, self.version);
+            }
         } else {
             println!("📦 Installing {} for platform: {platform}", self.name);
             self.install(platform, &target)
                 .await
                 .context(format!("install {}", self.name))?;
+
             println!("✅ {} installed", self.name);
         }
 
