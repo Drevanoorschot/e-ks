@@ -14,7 +14,7 @@ export class ManageCandidateListPage {
 
       // search first part of the name
       await this.page
-        .getByLabel("Zoek bestaande persoon")
+        .getByLabel("Zoek bestaande kandidaat")
         .pressSequentially(candidate.slice(0, 5));
 
       await this.page
@@ -51,7 +51,7 @@ export class ManageCandidateListPage {
   async removeDistricts(districts: string[]) {
     await this.page
       .getByRole("main")
-      .getByRole("link", { name: "Lijstgegevens" })
+      .getByRole("link", { name: "Aanpassen" })
       .click();
     for (const district of districts) {
       await this.page.getByRole("checkbox", { name: district }).uncheck();
@@ -62,7 +62,7 @@ export class ManageCandidateListPage {
   async addDistricts(districts: string[]) {
     await this.page
       .getByRole("main")
-      .getByRole("link", { name: "Lijstgegevens" })
+      .getByRole("link", { name: "Aanpassen" })
       .click();
     for (const district of districts) {
       await this.page.getByRole("checkbox", { name: district }).check();
@@ -73,7 +73,7 @@ export class ManageCandidateListPage {
   async removeList(districts: string[]) {
     await this.page
       .getByRole("main")
-      .getByRole("link", { name: "Lijstgegevens" })
+      .getByRole("link", { name: "Aanpassen" })
       .click();
     await this.page
       .getByRole("button", { name: "Kandidatenlijst verwijderen" })

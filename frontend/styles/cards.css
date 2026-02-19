@@ -76,7 +76,6 @@
     margin-top: var(--space-md);
     color: var(--gray-600);
     width: 100%;
-    max-width: 20rem;
   }
 
   *:last-child {
@@ -128,7 +127,7 @@
   &.card-persons {
     position: sticky;
     top: var(--space-lg);
-    height: 13rem;
+    height: fit-content;
 
     .badge {
       background-image: url("../icons/politician-badge.svg");

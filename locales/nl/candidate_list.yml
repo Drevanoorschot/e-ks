@@ -1,27 +1,30 @@
 actions:
   add: Lijst aanmaken
-  add_candidates: Voeg kandidaten toe aan de lijst
+  add_candidates: Kandidaten toevoegen
   add_existing: Bestaande
   add_new: Nieuwe
   back_to_list: Terug
   delete_list: Kandidatenlijst verwijderen
-  edit: Lijstgegevens
-  edit_list_details: Pas hier de lijstgegevens aan
+  edit: Aanpassen
+  edit_list_details: Kieskringen en lijstinleveraar aanpassen
   select_all_districts: Selecteer alle kieskringen
 add_candidate: Kandidaat toevoegen
 all_candidates: Alle kandidaten
+all_candidates_note: Kandidaten die u heeft aangemaakt vindt u hier terug
 candidate:
   delete_warning_text: "Deze persoon staat op {} kandidatenlijst(en). Weet je zeker dat je deze persoon definitief wilt verwijderen?"
 candidate_count: "<strong>{}</strong> / {} kandidaten"
-description: Voeg hier kandidaten toe en maak kandidatenlijst(en) aan.
+candidate_list_description:
+  add_candidate: Voeg kandidaten toe
+  add_candidate_list: Maak kandidatenlijst(en) aan
 districts:
   all: Alle
 edit_position: Volgorde op de lijst
 fields:
-  electoral_districts: Kiesdistricten
+  electoral_districts: Kieskringen
   list_submitter: Gegevens lijstinleveraar
   position: Positie
-  substitute_list_submitters: Vervangers voor herstel verzuimen
+  substitute_list_submitters: Vervangers voor het herstel van verzuimen
 form:
   copy_candidates_from_previous: Kopieer kandidaten van de laatst aangemaakte lijst
   copy_candidates_from_previous_legend: Kopieer kandidaten
@@ -32,7 +35,7 @@ form:
     title: Kandidatenlijst aanpassen
 not_found: "Kandidatenlijst {} niet gevonden."
 remove_candidate: Uit deze lijst verwijderen
-search_existing_person: Zoek bestaande persoon
+search_existing_person: Zoek bestaande kandidaat
 search_placeholder: "Zoek op naam, voorletters of woonplaats"
 title: Kandidatenlijsten
 title_single: Kandidatenlijst
