@@ -12,13 +12,13 @@ use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
 
 use crate::{
-    AppState, authorised_agents, candidate_lists, candidates, list_submitters, locale, pages,
-    persons, political_groups, render_error_pages, submit, substitute_list_submitters,
+    AppState, authorised_agents, candidate_lists, candidates, common, list_submitters, persons,
+    political_groups, render_error_pages, submit, substitute_list_submitters,
 };
 
 pub fn create(state: AppState) -> Router<AppState> {
     let router = Router::new()
-        .route("/", get(pages::index))
+        .merge(common::router())
         .merge(persons::router())
         .merge(political_groups::router())
         .merge(authorised_agents::router())
@@ -26,23 +26,21 @@ pub fn create(state: AppState) -> Router<AppState> {
         .merge(substitute_list_submitters::router())
         .merge(submit::router())
         .merge(candidate_lists::router())
-        .merge(candidates::router())
-        .merge(locale::locale_router());
+        .merge(candidates::router());
 
     #[cfg(feature = "dev-features")]
-    let bag_service_url =
-        crate::common::config::get_env("BAG_SERVICE_URL", "http://localhost:8080")
-            .expect("BAG_SERVICE_URL must be set in dev-features mode");
+    let bag_service_url = crate::get_env("BAG_SERVICE_URL", "http://localhost:8080")
+        .expect("BAG_SERVICE_URL must be set in dev-features mode");
 
     #[cfg(feature = "dev-features")]
     let router = router
         .route(
             "/lookup",
-            crate::common::proxy::proxy_handler(&bag_service_url),
+            crate::core::proxy::proxy_handler(&bag_service_url),
         )
         .route(
             "/suggest",
-            crate::common::proxy::proxy_handler(&bag_service_url),
+            crate::core::proxy::proxy_handler(&bag_service_url),
         );
 
     #[cfg(feature = "http-logging")]
@@ -53,7 +51,7 @@ pub fn create(state: AppState) -> Router<AppState> {
     );
 
     #[cfg(feature = "livereload")]
-    let router = router.merge(crate::common::livereload::livereload_router());
+    let router = router.merge(crate::core::livereload::livereload_router());
 
     #[cfg(feature = "memory-serve")]
     let router = router.nest(
@@ -64,7 +62,7 @@ pub fn create(state: AppState) -> Router<AppState> {
     #[cfg(not(feature = "memory-serve"))]
     let router = router.nest(
         "/static",
-        Router::new().fallback(crate::common::proxy::proxy_handler("http://localhost:8888")),
+        Router::new().fallback(crate::core::proxy::proxy_handler("http://localhost:8888")),
     );
 
     router
@@ -72,7 +70,7 @@ pub fn create(state: AppState) -> Router<AppState> {
             state.clone(),
             render_error_pages,
         ))
-        .fallback(get(pages::not_found))
+        .fallback(get(common::not_found))
         .layer(SetResponseHeaderLayer::if_not_present(
             header::CONTENT_SECURITY_POLICY,
             // TODO remove 'unsafe-hashes' as soon as we have implemented a login and do not require oauth-proxy anymore

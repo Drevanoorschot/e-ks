@@ -1,69 +1,147 @@
-use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc};
+use chrono::{DateTime, Utc};
+use std::sync::Arc;
+use url::Url;
 
-use crate::{
-    authorised_agents::{AuthorisedAgent, AuthorisedAgentId},
-    candidate_lists::{CandidateList, CandidateListId},
-    list_submitters::{ListSubmitter, ListSubmitterId},
-    persons::{Person, PersonId},
-    political_groups::PoliticalGroup,
-    substitute_list_submitters::{SubstituteSubmitter, SubstituteSubmitterId},
-};
+use crate::AppError;
 
-mod database;
-mod event;
-mod getters;
-mod reducer;
+#[cfg(feature = "database")]
+pub(crate) mod database;
 
-pub use event::AppEvent;
+mod persistance;
 
-#[cfg(test)]
-mod tests;
+#[derive(Debug, Clone)]
+pub struct StoreEvent<E> {
+    pub event_id: usize,
+    pub payload: E,
+    pub created_at: DateTime<Utc>,
+}
 
-#[derive(Default, Debug, Serialize, Deserialize)]
-pub struct AppStoreData {
-    political_group: PoliticalGroup,
-    persons: HashMap<PersonId, Person>,
-    candidate_lists: HashMap<CandidateListId, CandidateList>,
-    authorised_agents: HashMap<AuthorisedAgentId, AuthorisedAgent>,
-    list_submitters: HashMap<ListSubmitterId, ListSubmitter>,
-    substitute_submitters: HashMap<SubstituteSubmitterId, SubstituteSubmitter>,
-    // Track the last event ID applied to this store instance for synchronization purposes
-    last_event_id: usize,
+impl<E> StoreEvent<E> {
+    /// Construct a new store event with the given ID and payload.
+    /// `created_at` is set to the current UTC time.
+    pub fn new(event_id: usize, payload: E) -> Self {
+        Self {
+            event_id,
+            payload,
+            created_at: Utc::now(),
+        }
+    }
+
+    pub fn new_at(event_id: usize, payload: E, created_at: DateTime<Utc>) -> Self {
+        Self {
+            event_id,
+            payload,
+            created_at,
+        }
+    }
+}
+
+pub trait StoreData: Default + Send + Sync + 'static {
+    type Event;
+
+    /// Apply a fully wrapped store event to the data projection.
+    fn apply(&mut self, event: StoreEvent<Self::Event>);
+    /// Return the last applied event ID for this data instance.
+    fn last_event_id(&self) -> usize;
+    /// Update the last applied event ID for this data instance.
+    fn set_last_event_id(&mut self, event_id: usize);
 }
 
 #[derive(Clone)]
-pub enum AppStorePersistence {
+pub enum StorePersistence {
+    #[cfg(feature = "database")]
     Database(sqlx::PgPool),
     None,
 }
 
-#[derive(Clone)]
-pub struct AppStore {
-    pub persistence: AppStorePersistence,
-    data: Arc<parking_lot::RwLock<AppStoreData>>,
+pub struct Store<D> {
+    pub persistence: StorePersistence,
+    pub(crate) data: Arc<parking_lot::RwLock<D>>,
 }
 
-impl AppStore {
-    pub fn new(pool: sqlx::PgPool) -> Self {
-        AppStore {
-            persistence: AppStorePersistence::Database(pool),
-            data: Default::default(),
+impl<D> Clone for Store<D> {
+    /// Clone the store handle, sharing the same underlying data and persistence.
+    fn clone(&self) -> Self {
+        Self {
+            persistence: self.persistence.clone(),
+            data: self.data.clone(),
         }
     }
+}
 
-    #[cfg(test)]
-    pub async fn new_for_test() -> Self {
-        let political_group_id = crate::political_groups::PoliticalGroupId::new();
-        let political_group = crate::test_utils::sample_political_group(political_group_id);
+impl<D> Store<D>
+where
+    D: Default,
+{
+    /// Create a new store and initialize persistence from the provided storage URL.
+    pub async fn new(storage_url: &str) -> Result<Self, AppError> {
+        let persistence = StorePersistence::from_storage_url(storage_url)?;
 
-        let store = AppStore {
-            persistence: AppStorePersistence::None,
+        let store = Store {
+            persistence,
             data: Default::default(),
         };
 
-        political_group.update(&store).await.expect("store update");
+        store.persistence.init().await?;
 
-        store
+        Ok(store)
+    }
+
+    #[cfg(feature = "database")]
+    /// Create a new store backed by the provided database pool.
+    pub async fn new_with_pool(pool: sqlx::PgPool) -> Result<Self, AppError> {
+        let store = Store {
+            persistence: StorePersistence::Database(pool),
+            data: Default::default(),
+        };
+
+        store.persistence.init().await?;
+
+        Ok(store)
+    }
+}
+
+impl StorePersistence {
+    /// Build a persistence backend from a storage URL.
+    pub fn from_storage_url(storage_url: &str) -> Result<Self, AppError> {
+        let url = Url::parse(storage_url)
+            .map_err(|err| AppError::ConfigLoadError(format!("Invalid storage URL: {err}")))?;
+
+        match url.scheme() {
+            "memory" => Ok(StorePersistence::None),
+            "local" => Err(AppError::ConfigLoadError(
+                "Local storage is not implemented yet".to_string(),
+            )),
+            "postgres" | "postgresql" => {
+                #[cfg(feature = "database")]
+                {
+                    let pool = sqlx::PgPool::connect_lazy(storage_url)?;
+                    Ok(StorePersistence::Database(pool))
+                }
+                #[cfg(not(feature = "database"))]
+                {
+                    Err(AppError::ConfigLoadError(
+                        "Database storage disabled (enable feature \"database\")".to_string(),
+                    ))
+                }
+            }
+            scheme => Err(AppError::ConfigLoadError(format!(
+                "Unsupported storage scheme: {scheme}"
+            ))),
+        }
+    }
+
+    /// Initialize the selected persistence backend (migrations, etc).
+    pub async fn init(&self) -> Result<(), AppError> {
+        match self {
+            #[cfg(feature = "database")]
+            StorePersistence::Database(pool) => {
+                #[cfg(feature = "migrations")]
+                database::migrate(pool).await?;
+            }
+            StorePersistence::None => {}
+        }
+
+        Ok(())
     }
 }

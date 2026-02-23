@@ -22,7 +22,7 @@ fn find_used_keys(path: &std::path::Path) -> Vec<String> {
     let mut used_keys = Vec::new();
 
     let re = regex::Regex::new(r#""([\w\.]+)"\|trans"#).unwrap();
-    let templates_dir = path.join("templates");
+    let templates_dir = path.join("src").join("app");
     let mut template_files = Vec::new();
     collect_files_recursively(&templates_dir, "html", &mut template_files);
 

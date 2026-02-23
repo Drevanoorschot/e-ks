@@ -1,0 +1,74 @@
+//! Loads runtime configuration from environment variables for AppState.
+//! Used by AppState::new to construct service URLs and storage settings.
+
+use std::env;
+
+use crate::AppError;
+
+const DEFAULT_STORAGE_URL: &str = "postgres://eks@localhost/eks";
+
+#[derive(Debug, Clone, Copy)]
+pub struct Config {
+    pub storage_url: &'static str,
+}
+
+/// Helper function to get environment variable or return an error
+pub fn get_env(name: &'static str, _dev_default: &'static str) -> Result<String, AppError> {
+    match env::var(name) {
+        Ok(value) => Ok(value),
+        #[cfg(feature = "dev-features")]
+        Err(_) => Ok(_dev_default.to_string()),
+        #[cfg(not(feature = "dev-features"))]
+        Err(_) => Err(AppError::MissingEnvVar(name)),
+    }
+}
+
+impl Config {
+    pub fn from_env() -> Result<Self, AppError> {
+        Self::from_env_with(get_env)
+    }
+
+    pub fn from_env_with<F>(get: F) -> Result<Self, AppError>
+    where
+        F: Fn(&'static str, &'static str) -> Result<String, AppError>,
+    {
+        Ok(Self {
+            storage_url: Box::leak(get("STORAGE_URL", DEFAULT_STORAGE_URL)?.into_boxed_str()),
+        })
+    }
+
+    #[cfg(test)]
+    pub fn new_test() -> Self {
+        Self {
+            storage_url: DEFAULT_STORAGE_URL,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn loads_storage_url_from_provider() {
+        let config = Config::from_env_with(|key, _default| match key {
+            "STORAGE_URL" => Ok("postgres://example".to_string()),
+            _ => Err(AppError::MissingEnvVar(key)),
+        })
+        .unwrap();
+
+        assert_eq!(config.storage_url, "postgres://example");
+    }
+
+    #[test]
+    fn returns_error_when_env_missing() {
+        let key: &'static str = "STORAGE_URL";
+
+        let err =
+            Config::from_env_with(|_, _default| Err(AppError::MissingEnvVar(key))).unwrap_err();
+        match err {
+            AppError::MissingEnvVar(var) => assert_eq!(var, key),
+            _ => panic!("unexpected error: {err:?}"),
+        }
+    }
+}

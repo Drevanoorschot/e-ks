@@ -1,16 +1,18 @@
 use uuid::Uuid;
 
 use crate::{
-    AppError, AppStore, DutchAddress, FullName, HouseNumber, HouseNumberAddition, Initials,
-    LastName, LastNamePrefix, LegalName, Locality, PostalCode, StreetName, UtcDateTime,
+    AppError, Store,
     authorised_agents::{AuthorisedAgent, AuthorisedAgentId},
+    common::{
+        DisplayName, DutchAddress, FullName, HouseNumber, HouseNumberAddition, Initials, LastName,
+        LastNamePrefix, LegalName, Locality, PostalCode, StreetName,
+    },
     list_submitters::{ListSubmitter, ListSubmitterId},
     political_groups::{PoliticalGroup, PoliticalGroupId},
-    structs::DisplayName,
     substitute_list_submitters::{SubstituteSubmitter, SubstituteSubmitterId},
 };
 
-pub async fn load(store: &AppStore) -> Result<(), AppError> {
+pub async fn load(store: &Store) -> Result<(), AppError> {
     let political_group_id: PoliticalGroupId =
         Uuid::new_v5(&Uuid::NAMESPACE_OID, b"fixture_political_group").into();
 
@@ -38,8 +40,6 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
                 .parse::<DisplayName>()
                 .expect("display name"),
         ),
-        created_at: UtcDateTime::now(),
-        updated_at: UtcDateTime::now(),
     };
 
     political_group.update(store).await?;
@@ -51,8 +51,6 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
             last_name_prefix: Some("de".parse::<LastNamePrefix>().expect("last name prefix")),
             initials: "A.B.".parse::<Initials>().expect("initials"),
         },
-        created_at: UtcDateTime::now(),
-        updated_at: UtcDateTime::now(),
     }
     .create(store)
     .await?;
@@ -74,8 +72,6 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
             ),
             street_name: Some("Coolsingel".parse::<StreetName>().expect("street name")),
         },
-        created_at: UtcDateTime::now(),
-        updated_at: UtcDateTime::now(),
     }
     .create(store)
     .await?;
@@ -94,8 +90,6 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
             house_number_addition: None,
             street_name: Some("Spui".parse::<StreetName>().expect("street name")),
         },
-        created_at: UtcDateTime::now(),
-        updated_at: UtcDateTime::now(),
     }
     .create(store)
     .await?;
@@ -117,8 +111,6 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
             ),
             street_name: Some("Oudegracht".parse::<StreetName>().expect("street name")),
         },
-        created_at: UtcDateTime::now(),
-        updated_at: UtcDateTime::now(),
     }
     .create(store)
     .await?;
@@ -129,12 +121,10 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::PgPool;
 
-    #[cfg_attr(not(feature = "db-tests"), ignore = "requires database")]
-    #[sqlx::test]
-    async fn test_load(pool: PgPool) {
-        let store = AppStore::new(pool);
+    #[tokio::test]
+    async fn test_load() {
+        let store = Store::new_for_test().await;
         load(&store).await.unwrap();
 
         let list_submitters = store.get_list_submitters().unwrap();
