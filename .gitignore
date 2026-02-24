@@ -36,3 +36,5 @@ lcov.info
 /bin/version
 
 /models/*.pdf
+/offline/schemas/
+/offline/target/
