@@ -1,4 +1,7 @@
-import { expect, test } from "@playwright/test";
+// biome-ignore-all lint/correctness/noUnusedFunctionParameters: fixtures with void return type
+
+import { expect } from "@playwright/test";
+import { test } from "./fixtures.ts"
 import type { AuthorisedAgent } from "./models/authorisedAgent";
 import type { ListSubmitter } from "./models/listSubmitter";
 import { AuthorisedAgentsPage } from "./pages/authorisedAgentsPage";
@@ -8,21 +11,8 @@ import { SubstituteSubmittersPage } from "./pages/substituteSubmittersPage";
 import { randomName } from "./utils/random";
 
 test.describe("provide general information for political group", async () => {
-  test.beforeEach("delete existing data", async ({ page }) => {
-    const authorisedAgentsPage = new AuthorisedAgentsPage(page);
-    await authorisedAgentsPage.open();
-    await authorisedAgentsPage.deleteExistingAuthorisedAgents();
 
-    const listSubmittersPage = new ListSubmittersPage(page);
-    await listSubmittersPage.open();
-    await listSubmittersPage.deleteExistingListSubmitters();
-
-    const substituteSubmittersPage = new SubstituteSubmittersPage(page);
-    await substituteSubmittersPage.open();
-    await substituteSubmittersPage.deleteExistingSubstituteSubmitters();
-  });
-
-  test("provide general information for political group", async ({ page }) => {
+  test("provide general information for political group", async ({ page, deleteExistingData }) => {
     const politicalGroupPage = new PoliticalGroupPage(page);
     await politicalGroupPage.open();
     await politicalGroupPage.selectHasMoreThan16Seats("Ja");
@@ -32,7 +22,7 @@ test.describe("provide general information for political group", async () => {
     await politicalGroupPage.setStatutoryName("De Testpartij");
   });
 
-  test("provide authorised agent", async ({ page }) => {
+  test("provide authorised agent", async ({ page, deleteExistingData }) => {
     const authorisedAgentsPage = new AuthorisedAgentsPage(page);
     await authorisedAgentsPage.open();
     const agent: AuthorisedAgent = {
@@ -51,7 +41,7 @@ test.describe("provide general information for political group", async () => {
     ).toBeVisible();
   });
 
-  test("provide list submitter", async ({ page }) => {
+  test("provide list submitter", async ({ page, deleteExistingData }) => {
     const listSubmittersPage = new ListSubmittersPage(page);
     await listSubmittersPage.open();
     const submitterOne: ListSubmitter = {
@@ -75,7 +65,7 @@ test.describe("provide general information for political group", async () => {
     }
   });
 
-  test("provide substitute list submitter", async ({ page }) => {
+  test("provide substitute list submitter", async ({ page, deleteExistingData }) => {
     const substituteSubmittersPage = new SubstituteSubmittersPage(page);
     await substituteSubmittersPage.open();
     const submitterOne: ListSubmitter = {
