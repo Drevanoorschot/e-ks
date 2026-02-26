@@ -1,264 +1,220 @@
-use crate::{
-    AppError, AppEvent, AppStore, constants::DEFAULT_STREAM_ID, store::AppStorePersistence,
-};
+use chrono::Utc;
+use serde::{Serialize, de::DeserializeOwned};
 
-#[derive(Debug, sqlx::FromRow)]
-pub struct DatabaseEvent {
-    pub event_id: i64,
-    pub payload: serde_json::Value,
-    // pub created_at: chrono::DateTime<chrono::Utc>,
+use super::{Store, StoreData, StoreEvent};
+use crate::{AppError, constants::DEFAULT_STREAM_ID};
+
+#[cfg(feature = "database")]
+impl<'r> sqlx::FromRow<'r, sqlx::postgres::PgRow> for StoreEvent<serde_json::Value> {
+    /// Map a database row into a store event.
+    fn from_row(row: &'r sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
+        use chrono::{DateTime, Utc};
+        use sqlx::Row;
+
+        let event_id: i64 = row.try_get("event_id")?;
+        let payload: serde_json::Value = row.try_get("payload")?;
+        let created_at: DateTime<Utc> = row.try_get("created_at")?;
+
+        Ok(Self {
+            event_id: event_id as usize,
+            payload,
+            created_at,
+        })
+    }
 }
 
-impl AppStore {
-    pub async fn load(&self) -> Result<(), AppError> {
-        let AppStorePersistence::Database(pool) = &self.persistence else {
-            return Ok(());
-        };
+/// Initialize the database schema for event persistence.
+#[cfg(feature = "migrations")]
+pub async fn migrate(pool: &sqlx::PgPool) -> Result<(), AppError> {
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS streams (
+          stream_id UUID PRIMARY KEY,
+          last_event_id BIGINT NOT NULL
+        )
+        "#,
+    )
+    .execute(pool)
+    .await?;
 
-        let mut tx = pool.begin().await?;
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS events (
+          stream_id UUID NOT NULL,
+          event_id BIGINT NOT NULL,
+          created_at timestamp with time zone NOT NULL,
+          payload jsonb NOT NULL,
+          PRIMARY KEY (stream_id, event_id)
+        )
+        "#,
+    )
+    .execute(pool)
+    .await?;
 
-        match self.catch_up(&mut tx).await {
-            Ok(_) => {}
-            Err(e) => {
-                tx.rollback().await?;
+    sqlx::query(
+        r#"INSERT INTO streams (stream_id, last_event_id)
+        VALUES ($1, 0)
+        ON CONFLICT (stream_id) DO NOTHING"#,
+    )
+    .bind(crate::constants::DEFAULT_STREAM_ID)
+    .execute(pool)
+    .await?;
 
-                return Err(e);
-            }
-        }
+    Ok(())
+}
 
-        Ok(())
+/// Load and replay missing events from the database into the store.
+pub async fn load_from_database<D>(store: &Store<D>, pool: &sqlx::PgPool) -> Result<(), AppError>
+where
+    D: StoreData,
+    D::Event: DeserializeOwned,
+{
+    let mut tx = pool.begin().await?;
+
+    if let Err(err) = catch_up(store, &mut tx).await {
+        tx.rollback().await?;
+        return Err(err);
     }
 
-    async fn catch_up(
-        &self,
-        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    ) -> Result<usize, AppError> {
-        let last_id: usize = self.get_last_event_id()?;
+    Ok(())
+}
 
-        let stream_last_id: i64 = sqlx::query_scalar(
-            r#"SELECT last_event_id
-            FROM streams
-            WHERE stream_id = $1
-            FOR UPDATE"#,
-        )
-        .bind(DEFAULT_STREAM_ID)
-        .fetch_one(&mut **tx)
-        .await?;
+/// Append the event to the database and apply it to the store.
+pub async fn update_in_database<D>(
+    store: &Store<D>,
+    pool: &sqlx::PgPool,
+    event: D::Event,
+) -> Result<(), AppError>
+where
+    D: StoreData,
+    D::Event: Serialize + DeserializeOwned,
+{
+    let mut tx = pool.begin().await?;
 
-        let missing: Vec<DatabaseEvent> = sqlx::query_as::<_, DatabaseEvent>(
+    let last_id = match catch_up(store, &mut tx).await {
+        Ok(id) => id,
+        Err(err) => {
+            tx.rollback().await?;
+            return Err(err);
+        }
+    };
+
+    let next_id = last_id + 1;
+
+    let store_event = StoreEvent {
+        event_id: next_id,
+        payload: event,
+        created_at: Utc::now(),
+    };
+
+    if let Err(err) = append_once(next_id, &store_event, &mut tx).await {
+        tx.rollback().await?;
+        return Err(err);
+    }
+
+    tx.commit().await?;
+
+    store.apply_event(next_id, store_event);
+
+    Ok(())
+}
+
+/// Bring the in-memory store up to date by replaying missing events.
+async fn catch_up<D>(
+    store: &Store<D>,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> Result<usize, AppError>
+where
+    D: StoreData,
+    D::Event: DeserializeOwned,
+{
+    let last_id: usize = store.data.read().last_event_id();
+
+    let stream_last_id: i64 = sqlx::query_scalar(
+        r#"SELECT last_event_id
+        FROM streams
+        WHERE stream_id = $1
+        FOR UPDATE"#,
+    )
+    .bind(DEFAULT_STREAM_ID)
+    .fetch_one(&mut **tx)
+    .await?;
+
+    let missing: Vec<StoreEvent<serde_json::Value>> =
+        sqlx::query_as::<_, StoreEvent<serde_json::Value>>(
             r#"
-            SELECT event_id, payload
-            FROM events
-            WHERE stream_id = $1 AND event_id > $2
-            ORDER BY event_id ASC
-            "#,
+        SELECT event_id, payload, created_at
+        FROM events
+        WHERE stream_id = $1 AND event_id > $2
+        ORDER BY event_id ASC
+        "#,
         )
         .bind(DEFAULT_STREAM_ID)
         .bind(last_id as i64)
         .fetch_all(&mut **tx)
         .await?;
 
-        let mut data = self.data.write();
+    let mut data = store.data.write();
 
-        for event in missing {
-            if data.last_event_id >= event.event_id as usize {
-                // This can happen if another instance of the application processed events concurrently
-                // and updated the store before this instance could acquire the write lock. In that case,
-                // the store is already up-to-date and we can skip applying the event again.
-                continue;
-            }
-
-            match serde_json::from_value::<AppEvent>(event.payload) {
-                Ok(ev) => {
-                    AppStore::apply(ev, &mut data);
-                    data.last_event_id = event.event_id as usize;
-                }
-                Err(e) => {
-                    tracing::error!("Failed to deserialize event: {e:?}");
-                    continue;
-                }
-            }
-        }
-
-        Ok(stream_last_id as usize)
-    }
-
-    async fn append_once(
-        &self,
-        next_id: usize,
-        event: &AppEvent,
-        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
-    ) -> Result<(), AppError> {
-        let new_payload = serde_json::to_value(event).map_err(|_| AppError::InternalServerError)?;
-
-        sqlx::query(
-            r#"INSERT INTO events (stream_id, event_id, created_at, payload)
-            VALUES ($1, $2, $3, $4)"#,
-        )
-        .bind(DEFAULT_STREAM_ID)
-        .bind(next_id as i64)
-        .bind(chrono::Utc::now())
-        .bind(new_payload)
-        .execute(&mut **tx)
-        .await?;
-
-        sqlx::query(r#"UPDATE streams SET last_event_id = $2 WHERE stream_id = $1"#)
-            .bind(DEFAULT_STREAM_ID)
-            .bind(next_id as i64)
-            .execute(&mut **tx)
-            .await?;
-
-        Ok(())
-    }
-
-    pub async fn update(&self, event: AppEvent) -> Result<(), AppError> {
-        let AppStorePersistence::Database(pool) = &self.persistence else {
-            let mut data = self.data.write();
-            AppStore::apply(event, &mut data);
-
-            return Ok(());
-        };
-
-        sqlx::query(
-            r#"INSERT INTO streams (stream_id, last_event_id)
-            VALUES ($1, 0)
-            ON CONFLICT (stream_id) DO NOTHING"#,
-        )
-        .bind(crate::common::constants::DEFAULT_STREAM_ID)
-        .execute(pool)
-        .await?;
-
-        let mut tx = pool.begin().await?;
-
-        let last_id = match self.catch_up(&mut tx).await {
-            Ok(id) => id,
-            Err(e) => {
-                tx.rollback().await?;
-
-                return Err(e);
-            }
-        };
-
-        let next_id = last_id + 1;
-
-        match self.append_once(next_id, &event, &mut tx).await {
-            Ok(_) => {}
-            Err(e) => {
-                tx.rollback().await?;
-
-                return Err(e);
-            }
-        }
-
-        tx.commit().await?;
-
-        let mut data = self.data.write();
-
-        if data.last_event_id >= next_id {
+    for event in missing {
+        if data.last_event_id() >= event.event_id {
             // This can happen if another instance of the application processed events concurrently
             // and updated the store before this instance could acquire the write lock. In that case,
             // the store is already up-to-date and we can skip applying the event again.
-            return Ok(());
+            continue;
         }
 
-        AppStore::apply(event, &mut data);
-        data.last_event_id = next_id;
+        let StoreEvent {
+            event_id,
+            payload,
+            created_at,
+        } = event;
 
-        Ok(())
+        match serde_json::from_value::<D::Event>(payload) {
+            Ok(ev) => {
+                let store_event = StoreEvent {
+                    event_id,
+                    payload: ev,
+                    created_at,
+                };
+                data.apply(store_event);
+                data.set_last_event_id(event_id);
+            }
+            Err(e) => {
+                tracing::error!("Failed to deserialize event: {e:?}");
+                continue;
+            }
+        }
     }
 
-    #[cfg(feature = "fixtures")]
-    pub async fn clear(&self) -> Result<(), AppError> {
-        let AppStorePersistence::Database(pool) = &self.persistence else {
-            return Ok(());
-        };
-
-        sqlx::migrate!().run(pool).await.map_err(|e| {
-            tracing::error!("Failed to run migrations: {e:?}");
-            AppError::InternalServerError
-        })?;
-
-        sqlx::query("TRUNCATE TABLE streams CASCADE")
-            .execute(pool)
-            .await?;
-        sqlx::query("TRUNCATE TABLE events CASCADE")
-            .execute(pool)
-            .await?;
-
-        sqlx::query(
-            r#"INSERT INTO streams (stream_id, last_event_id)
-            VALUES ($1, 0)
-            ON CONFLICT (stream_id) DO NOTHING"#,
-        )
-        .bind(crate::common::constants::DEFAULT_STREAM_ID)
-        .execute(pool)
-        .await?;
-
-        Ok(())
-    }
+    Ok(stream_last_id as usize)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{persons::PersonId, test_utils::sample_person};
-    use chrono::Utc;
-    use sqlx::PgPool;
+/// Append a single event to the database within an open transaction.
+async fn append_once<E: Serialize>(
+    next_id: usize,
+    event: &StoreEvent<E>,
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> Result<(), AppError> {
+    let new_payload =
+        serde_json::to_value(&event.payload).map_err(|_| AppError::InternalServerError)?;
 
-    #[cfg_attr(not(feature = "db-tests"), ignore = "requires database")]
-    #[sqlx::test]
-    async fn update_persists_and_load_replays(pool: PgPool) -> Result<(), AppError> {
-        let store = AppStore::new(pool.clone());
-        let person_id = PersonId::new();
-        let person = sample_person(person_id);
+    sqlx::query(
+        r#"INSERT INTO events (stream_id, event_id, created_at, payload)
+        VALUES ($1, $2, $3, $4)"#,
+    )
+    .bind(DEFAULT_STREAM_ID)
+    .bind(next_id as i64)
+    .bind(event.created_at)
+    .bind(new_payload)
+    .execute(&mut **tx)
+    .await?;
 
-        person.create(&store).await?;
-
-        let loaded = store.get_person(person_id)?;
-        assert_eq!(loaded.id, person_id);
-
-        let fresh_store = AppStore::new(pool);
-        fresh_store.load().await?;
-
-        let reloaded = fresh_store.get_person(person_id)?;
-        assert_eq!(reloaded.id, person_id);
-
-        Ok(())
-    }
-
-    #[cfg_attr(not(feature = "db-tests"), ignore = "requires database")]
-    #[sqlx::test]
-    async fn load_skips_invalid_payloads(pool: PgPool) -> Result<(), AppError> {
-        let store = AppStore::new(pool.clone());
-        let person_id = PersonId::new();
-        let person = sample_person(person_id);
-
-        person.create(&store).await?;
-
-        let invalid_payload = serde_json::json!({"not": "an app event"});
-        sqlx::query(
-            r#"INSERT INTO events (stream_id, event_id, created_at, payload)
-            VALUES ($1, $2, $3, $4)"#,
-        )
+    sqlx::query(r#"UPDATE streams SET last_event_id = $2 WHERE stream_id = $1"#)
         .bind(DEFAULT_STREAM_ID)
-        .bind(2_i64)
-        .bind(Utc::now())
-        .bind(invalid_payload)
-        .execute(&pool)
+        .bind(next_id as i64)
+        .execute(&mut **tx)
         .await?;
 
-        sqlx::query(r#"UPDATE streams SET last_event_id = $2 WHERE stream_id = $1"#)
-            .bind(DEFAULT_STREAM_ID)
-            .bind(2_i64)
-            .execute(&pool)
-            .await?;
-
-        let fresh_store = AppStore::new(pool);
-        fresh_store.load().await?;
-
-        let reloaded = fresh_store.get_person(person_id)?;
-        assert_eq!(reloaded.id, person_id);
-
-        Ok(())
-    }
+    Ok(())
 }

@@ -28,11 +28,13 @@ spec:
             - containerPort: 3000
               name: http
           env:
-            - name: DATABASE_URL
+            - name: STORAGE_URL
               valueFrom:
                 secretKeyRef:
                   name: secrets
                   key: database_url
+            - name: TYPST_URL
+              value: "http://typst:80"
           resources:
             limits:
               memory: "50Mi"

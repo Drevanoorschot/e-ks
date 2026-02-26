@@ -30,7 +30,10 @@ lcov.info
 /bin/esbuild
 /bin/biome
 /bin/bag-service
+/bin/typst-webservice
 /bin/dev
 /bin/setup
 /bin/update_locales
 /bin/version
+
+/models/*.pdf
