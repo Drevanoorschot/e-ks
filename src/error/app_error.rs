@@ -1,3 +1,4 @@
+use crate::form::FieldErrors;
 use axum::extract::{
     multipart::{MultipartError, MultipartRejection},
     rejection::{JsonRejection, PathRejection, QueryRejection},
@@ -7,8 +8,6 @@ use std::{
     convert::Infallible,
     fmt::{Display, Formatter},
 };
-
-use crate::form::FieldErrors;
 
 /// Type alias for application responses
 pub type AppResponse<T> = Result<T, AppError>;
@@ -40,6 +39,10 @@ pub enum AppError {
     MissingEnvVar(&'static str),
     ConfigLoadError(String),
     ServerError(std::io::Error),
+    UpstreamError(reqwest::Error),
+
+    /// Missing data when generating a PDF.
+    IncompleteData(&'static str),
 
     NoStorageConfigured,
     IntegrityViolation,
@@ -68,6 +71,8 @@ impl Display for AppError {
             AppError::TemplateError(err) => write!(f, "Template error: {err}"),
             AppError::Unauthorised => write!(f, "Unauthorised"),
             AppError::ValidationError(errors) => write!(f, "Validation error: {errors:?}"),
+            AppError::UpstreamError(err) => write!(f, "Upstream error: {err}"),
+            AppError::IncompleteData(err) => write!(f, "Missing data when generating PDF: {err}"),
         }
     }
 }
@@ -132,6 +137,12 @@ impl From<QueryRejection> for AppError {
 impl From<Infallible> for AppError {
     fn from(_: Infallible) -> Self {
         AppError::InternalServerError
+    }
+}
+
+impl From<reqwest::Error> for AppError {
+    fn from(err: reqwest::Error) -> Self {
+        Self::UpstreamError(err)
     }
 }
 
