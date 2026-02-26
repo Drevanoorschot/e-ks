@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
-use std::sync::Arc;
+use serde::{Deserialize, Serialize};
+use std::{path::PathBuf, sync::Arc};
 use url::Url;
 
 use crate::AppError;
@@ -7,9 +8,10 @@ use crate::AppError;
 #[cfg(feature = "database")]
 pub(crate) mod database;
 
+mod filesystem;
 mod persistance;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoreEvent<E> {
     pub event_id: usize,
     pub payload: E,
@@ -51,6 +53,7 @@ pub trait StoreData: Default + Send + Sync + 'static {
 pub enum StorePersistence {
     #[cfg(feature = "database")]
     Database(sqlx::PgPool),
+    Local(PathBuf),
     None,
 }
 
@@ -71,7 +74,7 @@ impl<D> Clone for Store<D> {
 
 impl<D> Store<D>
 where
-    D: Default,
+    D: StoreData,
 {
     /// Create a new store and initialize persistence from the provided storage URL.
     pub async fn new(storage_url: &str) -> Result<Self, AppError> {
@@ -99,6 +102,21 @@ where
 
         Ok(store)
     }
+
+    /// Synchronize the in-memory store with the persistence by replaying any missing events.
+    pub fn apply_event(&self, next_id: usize, store_event: StoreEvent<D::Event>) {
+        let mut data = self.data.write();
+
+        if data.last_event_id() >= next_id {
+            // This can happen if another instance of the application processed events concurrently
+            // and updated the store before this instance could acquire the write lock. In that case,
+            // the store is already up-to-date and we can skip applying the event again.
+            return;
+        }
+
+        data.apply(store_event);
+        data.set_last_event_id(next_id);
+    }
 }
 
 impl StorePersistence {
@@ -109,9 +127,18 @@ impl StorePersistence {
 
         match url.scheme() {
             "memory" => Ok(StorePersistence::None),
-            "local" => Err(AppError::ConfigLoadError(
-                "Local storage is not implemented yet".to_string(),
-            )),
+            "local" => {
+                let path_string = storage_url.strip_prefix("local://").unwrap_or("");
+                let path = PathBuf::from(path_string);
+
+                if !path.exists() || !path.is_dir() {
+                    return Err(AppError::ConfigLoadError(format!(
+                        "Local storage requires a directory path, got: {path_string}"
+                    )));
+                }
+
+                Ok(StorePersistence::Local(path))
+            }
             "postgres" | "postgresql" => {
                 #[cfg(feature = "database")]
                 {
@@ -138,6 +165,9 @@ impl StorePersistence {
             StorePersistence::Database(pool) => {
                 #[cfg(feature = "migrations")]
                 database::migrate(pool).await?;
+            }
+            StorePersistence::Local(dir) => {
+                filesystem::init_local(dir).await?;
             }
             StorePersistence::None => {}
         }
