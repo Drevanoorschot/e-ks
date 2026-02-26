@@ -42,7 +42,8 @@ jobs:
         shell: bash
         run: >
           rustup update stable &&
-          rustup default stable
+          rustup default stable &&
+          rustup target add x86_64-unknown-linux-musl
 
       - name: Cargo cache
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2
@@ -59,13 +60,15 @@ jobs:
         run: bin/init esbuild
 
       - name: Build e-ks
-        run: ./bin/build
+        run: ./bin/build --target x86_64-unknown-linux-musl
+
+      - run: find . -name "eks"
 
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: target
-          path: |
-            target/release/eks
+          if-no-files-found: 'error'
+          path: target/release/eks
 
 
   build-docker:
@@ -87,7 +90,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - name: Download rust binaries
+      - name: Download rust binary
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: target
