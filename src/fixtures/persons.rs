@@ -6,9 +6,12 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    AppError, AppStore, Bsn, CountryCode, Date, DutchAddress, FirstName, FullName, HouseNumber,
-    Initials, LastName, Locality, PlaceOfResidence, PostalCode, StreetName, UtcDateTime,
-    persons::{Gender, Person},
+    AppError, Store,
+    common::{
+        Bsn, CountryCode, Date, DutchAddress, FirstName, FullName, Gender, HouseNumber, Initials,
+        LastName, Locality, PlaceOfResidence, PostalCode, StreetName,
+    },
+    persons::Person,
 };
 
 const PERSONS_CSV: &str = include_str!("persons.csv");
@@ -103,13 +106,12 @@ impl PersonRecord {
                 )?),
             },
             representative: Default::default(),
-            created_at: UtcDateTime::now(),
-            updated_at: UtcDateTime::now(),
+            ..Default::default()
         })
     }
 }
 
-pub async fn load(store: &AppStore) -> Result<(), AppError> {
+pub async fn load(store: &Store) -> Result<(), AppError> {
     let mut reader = ReaderBuilder::new()
         .trim(Trim::All)
         .from_reader(PERSONS_CSV.as_bytes());
@@ -131,15 +133,14 @@ pub async fn load(store: &AppStore) -> Result<(), AppError> {
 #[cfg(test)]
 mod tests {
     use crate::{pagination::SortDirection, persons::PersonSort};
-    use sqlx::PgPool;
 
     use super::*;
 
-    #[cfg_attr(not(feature = "db-tests"), ignore = "requires database")]
-    #[sqlx::test]
-    async fn test_load(pool: PgPool) {
-        let store = AppStore::new(pool);
+    #[tokio::test]
+    async fn test_load() {
+        let store = Store::new_for_test().await;
         load(&store).await.unwrap();
+
         let persons =
             crate::persons::Person::list(&store, 50, 0, &PersonSort::LastName, &SortDirection::Asc)
                 .unwrap();
