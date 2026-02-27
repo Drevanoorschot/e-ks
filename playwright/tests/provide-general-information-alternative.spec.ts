@@ -12,8 +12,8 @@ import { randomName } from "./utils/random";
 
 test.describe("provide general information for political group", async () => {
 
-  test("provide general information for political group", async ({ page, deleteExistingData }) => {
-    const politicalGroupPage = new PoliticalGroupPage(page);
+  test("provide general information for political group", async ({ deleteExistingData }) => {
+    const politicalGroupPage = new PoliticalGroupPage(deleteExistingData);
     await politicalGroupPage.open();
     await politicalGroupPage.selectHasMoreThan16Seats("Ja");
     await politicalGroupPage.open();
@@ -22,8 +22,8 @@ test.describe("provide general information for political group", async () => {
     await politicalGroupPage.setStatutoryName("De Testpartij");
   });
 
-  test("provide authorised agent", async ({ page, deleteExistingData }) => {
-    const authorisedAgentsPage = new AuthorisedAgentsPage(page);
+  test("provide authorised agent", async ({ deleteExistingData }) => {
+    const authorisedAgentsPage = new AuthorisedAgentsPage(deleteExistingData);
     await authorisedAgentsPage.open();
     const agent: AuthorisedAgent = {
       initials: "K",
@@ -41,8 +41,8 @@ test.describe("provide general information for political group", async () => {
     ).toBeVisible();
   });
 
-  test("provide list submitter", async ({ page, deleteExistingData }) => {
-    const listSubmittersPage = new ListSubmittersPage(page);
+  test("provide list submitter", async ({ deleteExistingData }) => {
+    const listSubmittersPage = new ListSubmittersPage(deleteExistingData);
     await listSubmittersPage.open();
     const submitterOne: ListSubmitter = {
       initials: "C",
@@ -65,8 +65,8 @@ test.describe("provide general information for political group", async () => {
     }
   });
 
-  test("provide substitute list submitter", async ({ page, deleteExistingData }) => {
-    const substituteSubmittersPage = new SubstituteSubmittersPage(page);
+  test("provide substitute list submitter", async ({ deleteExistingData }) => {
+    const substituteSubmittersPage = new SubstituteSubmittersPage(deleteExistingData);
     await substituteSubmittersPage.open();
     const submitterOne: ListSubmitter = {
       initials: "B",

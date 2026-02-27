@@ -28,12 +28,12 @@ export default defineConfig({
         browserName: 'firefox',
       },
     },
-    // {
-    //   name: 'webkit',
-    //   use: {
-    //     browserName: 'webkit',
-    //   },
-    // },
+     {
+       name: 'webkit',
+       use: {
+         browserName: 'webkit',
+       },
+     },
     {
       name: 'edge',
       use: {

@@ -1,10 +1,10 @@
-import { test as base } from "@playwright/test";
+import { test as base, Page } from "@playwright/test";
 import { AuthorisedAgentsPage } from "./pages/authorisedAgentsPage";
 import { ListSubmittersPage } from "./pages/listSubmittersPage";
 import { SubstituteSubmittersPage } from "./pages/substituteSubmittersPage";
 
 type Fixtures = {
-    deleteExistingData: undefined
+    deleteExistingData: Page
 }
 
 export const test = base.extend<Fixtures>({
@@ -21,6 +21,6 @@ export const test = base.extend<Fixtures>({
         await substituteSubmittersPage.open();
         await substituteSubmittersPage.deleteExistingSubstituteSubmitters();
 
-        await use(undefined);
+        await use(page);
     }
 })
