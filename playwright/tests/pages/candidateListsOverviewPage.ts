@@ -1,22 +1,12 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, Locator, type Page } from "@playwright/test";
 
 export class CandidateListsOverviewPage {
-  private readonly page: Page;
+  readonly buttonAddList: Locator;
 
-  constructor(page: Page) {
-    this.page = page;
+  constructor(protected readonly page: Page) {
+    this.buttonAddList = this.page.getByRole("link", { name: "Lijst aanmaken" });
   }
 
-  async open() {
-    await this.page.goto("/candidate-lists");
-  }
-
-  async addList() {
-    await this.page
-      .getByRole("main")
-      .getByRole("link", { name: "Lijst aanmaken" })
-      .click();
-  }
 
   async manageList() {
     await this.page

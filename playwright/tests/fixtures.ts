@@ -9,17 +9,13 @@ type Fixtures = {
 
 export const test = base.extend<Fixtures>({
     deleteExistingData: async ( { page }, use) => {
-        const authorisedAgentsPage = new AuthorisedAgentsPage(page);
-        await authorisedAgentsPage.open();
-        await authorisedAgentsPage.deleteExistingAuthorisedAgents();
+        await page.goto("/political-group/authorised-agents");
+        await new AuthorisedAgentsPage(page).deleteExistingAuthorisedAgents();
     
-        const listSubmittersPage = new ListSubmittersPage(page);
-        await listSubmittersPage.open();
-        await listSubmittersPage.deleteExistingListSubmitters();
+        await page.goto("/political-group/list-submitters");
+        await new ListSubmittersPage(page).deleteExistingListSubmitters();
     
-        const substituteSubmittersPage = new SubstituteSubmittersPage(page);
-        await substituteSubmittersPage.open();
-        await substituteSubmittersPage.deleteExistingSubstituteSubmitters();
+        await new SubstituteSubmittersPage(page).deleteExistingSubstituteSubmitters();
 
         await use(page);
     }
