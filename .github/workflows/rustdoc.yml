@@ -35,6 +35,9 @@ jobs:
           RUSTDOCFLAGS: "-D warnings"
         run: cargo doc --workspace --no-deps --all-features
 
+      - name: Add redirect to main crate docs
+        run: echo '<meta http-equiv="refresh" content="0; url=eks/index.html">' > target/doc/index.html
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:
