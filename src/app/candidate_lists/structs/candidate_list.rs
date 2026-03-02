@@ -38,24 +38,23 @@ impl CandidateList {
         self.electoral_districts.len() == election.electoral_districts().len()
     }
 
-    pub fn used_districts(
-        store: &AppStore,
-        exclude_list_ids: Vec<CandidateListId>,
-    ) -> Result<Vec<ElectoralDistrict>, AppError> {
-        let exclude: BTreeSet<CandidateListId> = exclude_list_ids.into_iter().collect();
-        let mut used = BTreeSet::<ElectoralDistrict>::new();
-
-        for list in store.get_candidate_lists()? {
-            if exclude.contains(&list.id) {
-                continue;
-            }
-
-            for district in list.electoral_districts {
-                used.insert(district);
-            }
-        }
+    pub fn used_districts(store: &AppStore) -> Result<Vec<ElectoralDistrict>, AppError> {
+        let used: BTreeSet<ElectoralDistrict> = store
+            .get_candidate_lists()?
+            .into_iter()
+            .flat_map(|list| list.electoral_districts.into_iter())
+            .collect();
 
         Ok(used.into_iter().collect())
+    }
+
+    pub fn available_districts(
+        store: &AppStore,
+        election: &ElectionConfig,
+    ) -> Vec<ElectoralDistrict> {
+        let used = CandidateList::used_districts(store).unwrap_or_default();
+
+        election.available_districts(used)
     }
 
     pub async fn update_order(
@@ -214,6 +213,25 @@ impl CandidateList {
         store.update(AppEvent::DeleteCandidateList(self.id)).await
     }
 
+    pub fn select_default_submitters(&mut self, store: &AppStore) -> Result<(), AppError> {
+        if self.list_submitter_id.is_none() {
+            self.list_submitter_id = store
+                .get_list_submitters()?
+                .first()
+                .map(|submitter| submitter.id);
+        }
+
+        if self.substitute_list_submitter_ids.is_empty() {
+            self.substitute_list_submitter_ids = store
+                .get_substitute_submitters()?
+                .iter()
+                .map(|submitter| submitter.id)
+                .collect();
+        }
+
+        Ok(())
+    }
+
     pub(crate) fn build_full_candidate_list(
         store: &AppStore,
         list: CandidateList,
@@ -243,7 +261,10 @@ mod tests {
         AppStore,
         candidate_lists::CandidateListSummary,
         persons::PersonId,
-        test_utils::{sample_candidate_list, sample_person_with_last_name},
+        test_utils::{
+            sample_candidate_list, sample_list_submitter, sample_person_with_last_name,
+            sample_substitute_submitter,
+        },
     };
     fn base_candidate_list(electoral_districts: Vec<ElectoralDistrict>) -> CandidateList {
         CandidateList {
@@ -398,6 +419,44 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn select_default_submitters_uses_store_defaults() -> Result<(), AppError> {
+        let store = AppStore::new_for_test().await;
+
+        let list_submitter_a =
+            sample_list_submitter(crate::list_submitters::ListSubmitterId::new());
+        let list_submitter_b =
+            sample_list_submitter(crate::list_submitters::ListSubmitterId::new());
+        list_submitter_a.create(&store).await?;
+        list_submitter_b.create(&store).await?;
+
+        let substitute_a = sample_substitute_submitter(
+            crate::substitute_list_submitters::SubstituteSubmitterId::new(),
+        );
+        let substitute_b = sample_substitute_submitter(
+            crate::substitute_list_submitters::SubstituteSubmitterId::new(),
+        );
+        substitute_a.create(&store).await?;
+        substitute_b.create(&store).await?;
+
+        let mut list = sample_candidate_list(CandidateListId::new());
+
+        list.select_default_submitters(&store)?;
+
+        let chosen_list_submitter = list
+            .list_submitter_id
+            .expect("default list submitter selected");
+        assert!([list_submitter_a.id, list_submitter_b.id].contains(&chosen_list_submitter));
+
+        let chosen_substitutes: BTreeSet<_> =
+            list.substitute_list_submitter_ids.iter().copied().collect();
+        let expected_substitutes: BTreeSet<_> =
+            [substitute_a.id, substitute_b.id].into_iter().collect();
+        assert_eq!(expected_substitutes, chosen_substitutes);
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn update_candidate_list_updates_districts() -> Result<(), AppError> {
         let store = AppStore::new_for_test().await;
         let list = sample_candidate_list(CandidateListId::new());
@@ -435,9 +494,8 @@ mod tests {
         insert_list(&store, vec![]).await?;
 
         // test
-        let result: BTreeSet<ElectoralDistrict> = CandidateList::used_districts(&store, vec![])?
-            .into_iter()
-            .collect();
+        let result: BTreeSet<ElectoralDistrict> =
+            CandidateList::used_districts(&store)?.into_iter().collect();
 
         // verify
         assert_eq!(expected, result);
@@ -447,7 +505,7 @@ mod tests {
     #[tokio::test]
     async fn get_used_districts_no_lists() -> Result<(), AppError> {
         let store = AppStore::new_for_test().await;
-        let result = CandidateList::used_districts(&store, vec![])?;
+        let result = CandidateList::used_districts(&store)?;
 
         assert_eq!(Vec::<ElectoralDistrict>::new(), result);
 
@@ -468,9 +526,8 @@ mod tests {
         insert_list(&store, vec![ElectoralDistrict::UT, ElectoralDistrict::OV]).await?;
 
         // test
-        let result: BTreeSet<ElectoralDistrict> = CandidateList::used_districts(&store, vec![])?
-            .into_iter()
-            .collect();
+        let result: BTreeSet<ElectoralDistrict> =
+            CandidateList::used_districts(&store)?.into_iter().collect();
 
         // verify
         assert_eq!(expected, result);
@@ -491,19 +548,12 @@ mod tests {
         insert_list(&store, vec![ElectoralDistrict::UT, ElectoralDistrict::DR]).await?;
         insert_list(&store, vec![ElectoralDistrict::GR, ElectoralDistrict::OV]).await?;
 
-        let exclude_id = insert_list(&store, vec![ElectoralDistrict::GR, ElectoralDistrict::LI])
-            .await?
-            .id;
-
         // test
         let result: BTreeSet<ElectoralDistrict> =
-            CandidateList::used_districts(&store, vec![exclude_id])?
-                .into_iter()
-                .collect();
+            CandidateList::used_districts(&store)?.into_iter().collect();
 
         // verify
         assert_eq!(expected, result);
-
         Ok(())
     }
 

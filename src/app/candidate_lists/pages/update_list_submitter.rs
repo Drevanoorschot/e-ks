@@ -50,10 +50,15 @@ fn render_submitter_form(
 pub async fn update_list_submitter(
     _: UpdateListSubmitterPath,
     context: Context,
-    candidate_list: CandidateList,
+    mut candidate_list: CandidateList,
     store: AppStore,
     Query(query): Query<QueryParamState>,
 ) -> Result<Response, AppError> {
+    // When adding a new candidate list, select the default submitter and substitute submitters
+    if query.is_initial() {
+        candidate_list.select_default_submitters(&store)?;
+    }
+
     let form = FormData::new_with_data(
         ListSubmitterForm::from(candidate_list.clone()),
         &context.session.csrf_tokens,
@@ -147,6 +152,48 @@ mod tests {
         assert!(body.contains(list_submitter.name.initials.as_str()));
         assert!(body.contains(substitute_submitter.name.last_name.as_str()));
         assert!(body.contains(substitute_submitter.name.initials.as_str()));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn update_list_submitter_selects_defaults_on_initial_query() -> Result<(), AppError> {
+        let store = AppStore::new_for_test().await;
+        let political_group = sample_political_group(PoliticalGroupId::new());
+        political_group.create(&store).await?;
+        let context = Context::new(
+            political_group.clone(),
+            Session::new_with_locale(Locale::En),
+        );
+        let candidate_list = sample_candidate_list(CandidateListId::new());
+        let list_submitter = sample_list_submitter(ListSubmitterId::new());
+        let substitute_submitter_a = sample_substitute_submitter(SubstituteSubmitterId::new());
+        let substitute_submitter_b = sample_substitute_submitter(SubstituteSubmitterId::new());
+        let political_group = sample_political_group(PoliticalGroupId::new());
+
+        candidate_list.create(&store).await?;
+        political_group.create(&store).await?;
+        list_submitter.create(&store).await?;
+        substitute_submitter_a.create(&store).await?;
+        substitute_submitter_b.create(&store).await?;
+
+        let response = update_list_submitter(
+            UpdateListSubmitterPath {
+                list_id: candidate_list.id,
+            },
+            context,
+            candidate_list.clone(),
+            store,
+            Query(QueryParamState::created()),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_body_string(response).await;
+        assert!(body.contains(&format!("value=\"{}\" checked", list_submitter.id)));
+        assert!(body.contains(&format!("value=\"{}\" checked", substitute_submitter_a.id)));
+        assert!(body.contains(&format!("value=\"{}\" checked", substitute_submitter_b.id)));
 
         Ok(())
     }
