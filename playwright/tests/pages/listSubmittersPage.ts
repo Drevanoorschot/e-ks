@@ -1,19 +1,35 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import type { ListSubmitter } from "../models/listSubmitter";
 
 export class ListSubmittersPage {
-  private readonly page: Page;
+  readonly buttonDelete: Locator;
+  readonly buttonConfirmDelete: Locator;
+  readonly buttonAdd: Locator;
+  readonly buttonSave: Locator;
+  readonly textfieldInitials: Locator;
+  readonly textfieldLastNamePrefix: Locator;
+  readonly textfieldLastName: Locator;
 
-  constructor(page: Page) {
-    this.page = page;
+  constructor(protected readonly page: Page) {
+    this.buttonDelete = this.page.getByRole("button", {
+      name: "Lijstinleveraar verwijderen",
+      exact: true,
+    });
+    this.buttonConfirmDelete = this.page.getByRole("button", {
+      name: "Verwijderen",
+      exact: true,
+    });
+    this.buttonAdd = this.page.getByRole("link", {
+      name: "Lijstinleveraar toevoegen",
+    });
+    this.buttonSave = this.page.getByRole("button", { name: "Opslaan" });
+    this.textfieldInitials = this.page.getByLabel("Voorletters");
+    this.textfieldLastNamePrefix = this.page.getByLabel("Voorvoegsel");
+    this.textfieldLastName = this.page.getByLabel("Achternaam");
   }
 
   getSubmitterLocator(lastName: string) {
     return this.page.getByRole("link", { name: new RegExp(lastName) });
-  }
-
-  async open() {
-    await this.page.goto("/political-group/list-submitters");
   }
 
   async deleteExistingListSubmitters() {
@@ -25,46 +41,17 @@ export class ListSubmittersPage {
     for (const href of hrefs) {
       if (href) {
         await this.page.goto(href);
-        await this.page
-          .getByRole("button", {
-            name: "Lijstinleveraar verwijderen",
-            exact: true,
-          })
-          .click();
-        await this.page
-          .getByRole("button", { name: "Verwijderen", exact: true })
-          .click();
+        await this.buttonDelete.click();
+        await this.buttonConfirmDelete.click();
       }
     }
   }
 
-  async addListSubmitter(listSubmitters: ListSubmitter[]) {
-    for (const listSubmitter of listSubmitters) {
-      await this.page
-        .getByRole("link", { name: "Lijstinleveraar toevoegen" })
-        .click();
-      await this.page
-        .getByRole("textbox", { name: "Voorletters" })
-        .fill(listSubmitter.initials);
-      await this.page
-        .getByRole("textbox", { name: "Voorvoegsel" })
-        .fill(listSubmitter.lastNamePrefix ?? "");
-      await this.page
-        .getByRole("textbox", { name: "Achternaam" })
-        .fill(listSubmitter.lastName);
-      await this.page.locator("body").click();
-
-      await this.page.getByRole("button", { name: "Opslaan" }).click();
-    }
-  }
-
-  async editListSubmitter() {
-    await this.page
-      .getByRole("cell", { name: "Gemachtigde toevoegen" })
-      .click();
-    await this.page.getByRole("textbox", { name: "Voorletters" }).fill("A");
-    await this.page.getByRole("textbox", { name: "Voorvoegsel" }).fill("de");
-    await this.page.getByRole("textbox", { name: "Achternaam" }).fill("Tester");
-    await this.page.getByRole("button", { name: "Opslaan" }).click();
+  async addListSubmitter(listSubmitter: ListSubmitter) {
+    await this.buttonAdd.click();
+    await this.textfieldInitials.fill(listSubmitter.initials);
+    await this.textfieldLastNamePrefix.fill(listSubmitter.lastNamePrefix ?? "");
+    await this.textfieldLastName.fill(listSubmitter.lastName);
+    await this.buttonSave.click();
   }
 }

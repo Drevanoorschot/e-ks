@@ -1,39 +1,23 @@
-import { expect, type Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 export class CandidateListsOverviewPage {
-  private readonly page: Page;
+  readonly buttonAddList: Locator;
+  readonly linkCandidateList: Locator;
+  readonly headingAllCandidates: Locator;
 
-  constructor(page: Page) {
-    this.page = page;
+  constructor(protected readonly page: Page) {
+    this.buttonAddList = this.page.getByRole("link", {
+      name: "Lijst aanmaken",
+    });
+    this.linkCandidateList = this.page.getByRole("link", {
+      name: /^Kandidatenlijst \d+ \/ \d+/,
+    });
+    this.headingAllCandidates = this.page.getByRole("heading", {
+      name: "Alle kandidaten",
+    });
   }
 
-  async open() {
-    await this.page.goto("/candidate-lists");
-  }
-
-  async addList() {
-    await this.page
-      .getByRole("main")
-      .getByRole("link", { name: "Lijst aanmaken" })
-      .click();
-  }
-
-  async manageList() {
-    await this.page
-      .getByRole("link", { name: /^Kandidatenlijst \d+ \/ \d+/ })
-      .first()
-      .click();
-  }
-
-  async managePersons() {
-    await this.page.getByRole("heading", { name: "Alle kandidaten" }).click();
-  }
-
-  async checkRemovedDistricts(districts: string[]) {
-    for (const district of districts) {
-      await expect(
-        this.page.getByRole("listitem", { name: district }),
-      ).toHaveCount(0);
-    }
+  async getDistrictLocator(districtName: string) {
+    return this.page.getByRole("listitem", { name: districtName });
   }
 }

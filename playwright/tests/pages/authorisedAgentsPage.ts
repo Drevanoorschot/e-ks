@@ -1,19 +1,35 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import type { AuthorisedAgent } from "../models/authorisedAgent";
 
 export class AuthorisedAgentsPage {
-  private readonly page: Page;
+  readonly textfieldInitials: Locator;
+  readonly textfieldLastNamePrefix: Locator;
+  readonly textfieldLastName: Locator;
+  readonly buttonDelete: Locator;
+  readonly buttonConfirmDelete: Locator;
+  readonly buttonAdd: Locator;
+  readonly buttonSave: Locator;
 
-  constructor(page: Page) {
-    this.page = page;
+  constructor(protected readonly page: Page) {
+    this.textfieldInitials = this.page.getByLabel("Voorletters");
+    this.textfieldLastNamePrefix = this.page.getByLabel("Voorvoegsel");
+    this.textfieldLastName = this.page.getByLabel("Achternaam");
+    this.buttonDelete = this.page.getByRole("button", {
+      name: "Gemachtigde verwijderen",
+      exact: true,
+    });
+    this.buttonConfirmDelete = this.page.getByRole("button", {
+      name: "Verwijderen",
+      exact: true,
+    });
+    this.buttonAdd = this.page.getByRole("link", {
+      name: "Gemachtigde toevoegen",
+    });
+    this.buttonSave = this.page.getByRole("button", { name: "Opslaan" });
   }
 
   getAgentLocator(lastName: string) {
     return this.page.getByRole("link", { name: new RegExp(lastName) });
-  }
-
-  async open() {
-    await this.page.goto("/political-group/authorised-agents");
   }
 
   async deleteExistingAuthorisedAgents() {
@@ -25,51 +41,30 @@ export class AuthorisedAgentsPage {
     for (const href of hrefs) {
       if (href) {
         await this.page.goto(href);
-        await this.page
-          .getByRole("button", { name: "Gemachtigde verwijderen", exact: true })
-          .click();
-        await this.page
-          .getByRole("button", { name: "Verwijderen", exact: true })
-          .click();
+        await this.buttonDelete.click();
+        await this.buttonConfirmDelete.click();
       }
     }
   }
 
   async addAuthorisedAgent(authorisedAgent: AuthorisedAgent) {
-    await this.page
-      .getByRole("link", { name: "Gemachtigde toevoegen" })
-      .click();
-    await this.page
-      .getByRole("textbox", { name: "Voorletters" })
-      .fill(authorisedAgent.initials);
-    await this.page
-      .getByRole("textbox", { name: "Voorvoegsel" })
-      .fill(authorisedAgent.lastNamePrefix ?? "");
-    await this.page
-      .getByRole("textbox", { name: "Achternaam" })
-      .fill(authorisedAgent.lastName);
-    await this.page.locator("body").click();
-
-    await this.page.getByRole("button", { name: "Opslaan" }).click();
+    await this.buttonAdd.click();
+    await this.textfieldInitials.fill(authorisedAgent.initials);
+    await this.textfieldLastNamePrefix.fill(
+      authorisedAgent.lastNamePrefix ?? "",
+    );
+    await this.textfieldLastName.fill(authorisedAgent.lastName);
+    await this.buttonSave.click();
   }
 
   async editAuthorisedAgent(authorisedAgents: AuthorisedAgent[]) {
     for (const authorisedAgent of authorisedAgents) {
-      await this.page
-        .getByRole("cell", { name: authorisedAgent.lastName })
-        .click();
-      await this.page
-        .getByRole("textbox", { name: "Voorletters" })
-        .fill(authorisedAgent.initials);
-      await this.page
-        .getByRole("textbox", { name: "Voorvoegsel" })
-        .fill(authorisedAgent.lastNamePrefix ?? "");
-      await this.page
-        .getByRole("textbox", { name: "Achternaam" })
-        .fill(authorisedAgent.lastName);
-      await this.page.locator("body").click();
-
-      await this.page.getByRole("button", { name: "Opslaan" }).click();
+      await this.textfieldInitials.fill(authorisedAgent.initials);
+      await this.textfieldLastNamePrefix.fill(
+        authorisedAgent.lastNamePrefix ?? "",
+      );
+      await this.textfieldLastName.fill(authorisedAgent.lastName);
+      await this.buttonSave.click();
     }
   }
 }

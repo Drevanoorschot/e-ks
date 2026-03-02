@@ -1,18 +1,20 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 export class SelectElectoralDistrictsPage {
-  private readonly page: Page;
+  readonly buttonNext: Locator;
+  readonly buttonClose: Locator;
 
-  constructor(page: Page) {
-    this.page = page;
+  constructor(protected readonly page: Page) {
+    this.buttonNext = this.page.getByRole("button", { name: "Volgende" });
+    this.buttonClose = this.page.getByRole("link", { name: "Sluiten" }).first();
   }
+
   async selectDistricts(districts: string[]) {
     for (const district of districts) {
       await this.page.getByRole("checkbox", { name: district }).check();
     }
 
-    await this.page.getByRole("button", { name: "Volgende" }).click();
-
-    await this.page.getByRole("link", { name: "Sluiten" }).first().click();
+    await this.buttonNext.click();
+    await this.buttonClose.click();
   }
 }
