@@ -2,10 +2,10 @@ name: Create release on version bump
 
 on:
   workflow_run:
-    workflows:
-      - "Build, lint & test"
-    types:
-      - completed
+    # workflows:
+    #   - "Build, lint & test"
+    # types:
+    #   - completed
     branches:
       - main
 
