@@ -135,3 +135,6 @@ Not allowed:
 
 When in doubt:  
 If you would not have written it yourself, do not commit it.
+
+## 8. Extra Chapter
+Extra chapter for PR
