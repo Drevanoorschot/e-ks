@@ -32,6 +32,7 @@ jobs:
         id: version
         run: |
           version=$(awk -F' *= *' '$1 == "version" { gsub(/"/, "", $2); print $2; exit }' Cargo.toml)
+          echo $version
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Check release existence
         id: release_check
