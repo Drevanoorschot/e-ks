@@ -406,6 +406,7 @@ mod tests {
     #[test]
     fn personal_info_complete_requires_core_fields() {
         let mut person = sample_person(PersonId::new());
+        person.personal_data.bsn = None;
         assert!(!person.is_personal_info_complete());
 
         person.personal_data.bsn = Some(BsnOrNoneConfirmed::Bsn("999995972".parse().expect("bsn")));
